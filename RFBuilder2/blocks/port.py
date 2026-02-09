@@ -9,20 +9,16 @@ class Port(ABC):
     def __init__(self, direction: PortDirection, id: int):
         self.direction = direction
         self.id = id
-        self.connection = {}
+        self.available = True
 
-    def register_connect(self, name: str, id: int):
-        self.connection = {
-            "name"  :   name,
-            "id"    :   id
-        }
+    def register_connection(self):
+        if not self.available:
+            raise OverflowError("Port already has a connection")
+        
+        self.available = False
+        
+        
 
-    def to_dict(self):
-        return {
-            "id"        : self.id,
-            "direction" : self.direction.value,
-            "connection": self.connection
-        }
 
     def __str__(self):
-        return f"[Port] ID : {self.id} | Direction : {self.direction}"
+        return f"[Port] ID : {self.id} | Direction : {self.direction} | Available : {self.available}"

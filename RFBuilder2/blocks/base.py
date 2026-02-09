@@ -6,17 +6,30 @@ class RFBlock(ABC):
         self.name = name
         self.ports = ports
         self.attributes = {}
+        self.dirty = True
+        self.registered = False
 
     def to_dict(self):
         block = {
             "name" : self.name,
             "attributes" : self.attributes,
-            "ports" : [port.to_dict() for port in self.ports]
         }
 
         return block
 
-
+    def get_ports(self) -> list[Port]:
+        output_ports = []
+        
+        for port in self.ports:
+            if port.available:
+                output_ports.append(port)
+                
+                
+        return output_ports
+        
+    def register_block(self):
+        self.registered = True
+        
     @abstractmethod
     def __str__(self):
         assert NotImplementedError

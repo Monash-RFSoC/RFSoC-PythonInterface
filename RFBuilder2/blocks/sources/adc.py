@@ -2,8 +2,8 @@ from ..base import Source
 from ..port import Port, PortDirection
 
 class ADC(Source):
-    def __init__(self, tile: str):
-        ports = [Port(PortDirection.OUTPUT, 0)]
+    def __init__(self, tile: str, id: int):
+        ports = [Port(PortDirection.OUTPUT, id)]
         super().__init__(tile, ports)
 
     def __str__(self):

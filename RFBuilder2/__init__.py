@@ -1,4 +1,5 @@
 from .boards import RFSOC4x2
 from .rfbuilder import RFBuilder
+from .blocks import ArbitraryWaveformGenerator, WaveType
 
-__all__ = ["RFSOC4x2", "RFBuilder"]
+__all__ = ["RFSOC4x2", "RFBuilder", "ArbitraryWaveformGenerator", "WaveType"]

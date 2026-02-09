@@ -6,10 +6,10 @@ class RFSOC4x2(Board):
         super().__init__()
 
     def get_dacs(self):
-        return ["dac_a", "dac_b"]
+        return [{"name" : "dac_a", "id" : 1}, {"name" : "dac_b", "id" : 0}]
 
     def get_adcs(self):
-        return ["adc_a", "adc_b", "adc_c", "adc_d"]
+        return [{"name" : "adc_b", "id" : 1}]
 
     def __str__(self) -> str:
         return "RFSoC4x2"
