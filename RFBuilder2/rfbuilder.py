@@ -4,6 +4,7 @@ from .blocks.base import RFBlock
 from .blocks.sinks.dac import DAC
 from .blocks.sources.adc import ADC
 
+from .networking import send_http_data
 
 class RFBuilder(ABC):
     def __init__(self, board: Board, ip: str, port: int):
@@ -71,8 +72,10 @@ class RFBuilder(ABC):
                 
         if self.connections_dirty:
             system["connections"] = self.connections
-                
-        return system 
+
+        send_http_data("", self.ip, self.port)
+
+        return system
 
     def get_dacs(self):
         dacs = []

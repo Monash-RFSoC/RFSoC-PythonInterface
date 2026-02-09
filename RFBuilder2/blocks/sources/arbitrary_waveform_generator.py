@@ -123,7 +123,7 @@ class ArbitraryWaveformGenerator(Source):
         wave_data, num_bytes = self.generate_waveform()
         
         self.attributes = {
-            "waveform" : wave_data,
+            "waveform" : [],
             "stream_length" : num_bytes,
             "base_address" : 0x0
         }
