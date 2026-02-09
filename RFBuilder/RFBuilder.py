@@ -1,5 +1,5 @@
 from platform import system
-from .RFBlocks import RFBlock, Port
+from .RFBlocks.Base import RFBlock, Port
 
 class RFBuilder():
     def __init__(self):
@@ -12,7 +12,7 @@ class RFBuilder():
         if not isinstance(block, RFBlock):
             raise TypeError("Block must be an instance of RFBlock or its subclasses.")
 
-        block.set_id(str(len(self.blocks) + 1))
+        block.id = str(len(self.blocks) + 1)
 
         self.blocks.append(block)
         return block.id

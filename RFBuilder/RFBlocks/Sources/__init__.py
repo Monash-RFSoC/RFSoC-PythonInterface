@@ -1,5 +1,3 @@
-from RFBuilder.RFBlocks.Sources.MemSource import MemSource
-from RFBuilder.RFBlocks.Sources.Source import Source
-from RFBuilder.RFBlocks.Sources.WaveGenerator import WaveGenerator, WaveType
+from RFBuilder.RFBlocks.Sources.ArbitraryWaveformGenerator import ArbitraryWaveformGenerator
 
-__all__ = ['MemSource', 'Source', 'WaveGenerator', 'WaveType']
+__all__ = ['ArbitraryWaveformGenerator']

@@ -1,5 +1,6 @@
 from .RFBuilder import RFBuilder
-from RFBuilder.RFBlocks import RFBlock, Port, ProcessingNode, Sink, Source, MemSource, LowPassFilter, WaveType, WaveGenerator, DAC
+from RFBuilder.RFBlocks import ArbitraryWaveformGenerator
 from RFBuilder.Boards import RFSoC4x2
+from RFBuilder.Utils import wave_generator
 
-__all__ = ['RFBuilder', 'RFBlock', 'Port', 'ProcessingNode', 'Sink', 'Source', 'MemSource', 'LowPassFilter', 'RFSoC4x2', 'WaveType', 'WaveGenerator', 'DAC']
+__all__ = ['RFBuilder', 'ArbitraryWaveformGenerator', 'RFSoC4x2', 'wave_generator']

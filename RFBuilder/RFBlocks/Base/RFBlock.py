@@ -1,25 +1,28 @@
 from .Port import Port
 from typing import List
 
-from abc import ABC
+from abc import ABC, abstractmethod
 
 class RFBlock(ABC):
     def __init__ (self, ports: List[Port]):
         self.id = None
         self.ports = ports
 
-    def set_id(self, id: str):
-        self.id = id
+    @property
+    @abstractmethod
+    def block_type(cls):
+        pass
 
-        for index, port in enumerate(self.ports):
-            port.set_id(self.id + "." + str(index + 1))
+    @abstractmethod
+    def get_attributes(self) -> dict:
+        pass
 
     def to_dict(self) -> dict:
         return {
-            "type": self.__class__.__name__,
+            "type": self.block_type,
             "id": self.id,
             "ports": [port.to_dict() for port in self.ports],
-            "attributes": {}
+            "attributes": self.get_attributes()
         }
     
     def __str__(self):

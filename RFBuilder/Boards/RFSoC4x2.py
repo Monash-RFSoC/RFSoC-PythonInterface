@@ -3,6 +3,12 @@ import requests
 import json
 import time
 
+
+class RFSoC4x2(Board):
+    def __init__(self):
+        super().__init__()
+
+
 def send_http_data(data: dict, ip: str, port: int) -> dict:
     """
     Send data via HTTP POST and receive response
@@ -24,17 +30,8 @@ def send_http_data(data: dict, ip: str, port: int) -> dict:
     timeout = (10, 30)  # (connect timeout, read timeout)
     
     try:
-        # Send OPTIONS request first
-        # print(f"Sending OPTIONS to {url}")
         options_response = session.options(url, timeout=timeout)
-        # print(f"OPTIONS Response: {options_response.status_code}")
-        # print(f"OPTIONS Headers: {dict(options_response.headers)}")
-        
-        # Check if OPTIONS response has any content
-        # if options_response.text:
-            # print(f"OPTIONS Response Content: {options_response.text}")
-        
-        # Send POST request
+    
         headers = {
             'Content-Type': 'application/json',
             'Connection': 'keep-alive',
@@ -42,20 +39,9 @@ def send_http_data(data: dict, ip: str, port: int) -> dict:
             'User-Agent': 'RFSoC-Python-Interface/1.0'
         }
         
-        # print(f"Sending POST to {url} with {len(json.dumps(data))} bytes of data")
-        
-        # Use stream=True to handle large responses better
         response = session.post(url, json=data, headers=headers, timeout=timeout, stream=True)
         
-        # # print(f"Response Status: {response.status_code}")
-        # # print(f"Response Headers: {dict(response.headers)}")
-        # # print(f"Response Encoding: {response.encoding}")
-        
-        # Check if response indicates chunked transfer or continuation
-        # if 'transfer-encoding' in response.headers:
-            # # print(f"Transfer-Encoding: {response.headers['transfer-encoding']}")
-        # if 'content-length' in response.headers:
-            # # print(f"Content-Length: {response.headers['content-length']}")
+
 
         # # print(f"Response: {response.text}")
         if response.status_code == 200:
@@ -135,6 +121,7 @@ def transmit(rf_builder: RFBuilder, ip: str, port: int) -> None:
     
     # Send system architecture first
     architecture_packet = rf_builder.construct_packet()
+
     # print("Sending architecture packet...")
     arch_response = send_http_data(architecture_packet, ip, port)
     

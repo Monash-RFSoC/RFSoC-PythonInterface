@@ -8,9 +8,6 @@ class Port():
     def __init__ (self, direction: NodeDirection) -> None:
         self.direction = direction
         self.connection = None
-
-    def set_id(self, id: str):
-        self.id = id
         
     def check_compatability(self, other_port: Port) -> bool:
         if (self.direction == other_port.direction):
