@@ -13,15 +13,22 @@ class WaveType(Enum):
 
 
 class ArbitraryWaveformGenerator(Source):
-    def __init__(self, wave_type: str, freq: float, amplitude: float = 16000, tolerance: int = 100, max_samples: int = 400e6):
-        self.wave_type = wave_type
-        self.freq = freq
-        self.amplitude = amplitude
-        self.tolerance = tolerance
-        self.max_samples = max_samples
+    def __init__(self, wave_type: WaveType, freq: float, amplitude: float = 16000, tolerance: int = 100, max_samples: int = 400e6):
+        self.wave_type: WaveType = wave_type
+        self.freq: float = freq
+        self.amplitude: float = amplitude
+        self.tolerance: int = tolerance
+        self.max_samples: int = max_samples
         
         super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)])
         
+    def set_freq(self, freq: float):
+        self.freq = freq
+        self.dirty = True
+
+    def set_wave_type(self, wave_type: WaveType):
+        self.wave_type = wave_type
+        self.dirty = True
         
     def generate_waveform(self):
         SAMPLE_RATE = 8000000000
