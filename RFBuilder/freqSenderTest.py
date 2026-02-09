@@ -9,24 +9,24 @@ def transmit(freq: int, ip: str, port: int) -> None:
     # Send OPTIONS request
     try:
         response = requests.options(url)
-        print("OPTIONS response:", response)
+        # print("OPTIONS response:", response)
     except Exception as e:
-        print("OPTIONS request failed:", e)
+        # print("OPTIONS request failed:", e)
 
     # Send POST request
     headers = {'Content-Type': 'application/json'}
     data = freq
 
-    print("Transmitting Data:", data)
+    # print("Transmitting Data:", data)
 
     try:
         response = requests.post(url, json=data, headers=headers)
         if response.status_code == 200:
-            print("Transmission successful:", response.json())
+            # print("Transmission successful:", response.json())
         else:
-            print("Transmission failed:", response.status_code, response.text)
+            # print("Transmission failed:", response.status_code, response.text)
     except Exception as e:
-        print("POST request failed:", e)
+        # print("POST request failed:", e)
 
 
 # -------- Pygame Slider Script --------
