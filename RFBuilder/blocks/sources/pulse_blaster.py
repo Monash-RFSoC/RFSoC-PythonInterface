@@ -19,11 +19,9 @@ class PulseBlaster(Source):
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
-        self.custom_update = True
-
-
         super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
-
+        self.custom_update = True
+        
     def add_instruction(self,phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
         """
         Given the input parameters, generates a 128 bit wide instruction word (as a string) that can be read by the PBFSM.
@@ -44,6 +42,7 @@ class PulseBlaster(Source):
         :param Fclk: The frequency that the DDS connected to the PBFSM runs at in MHz. Used to calculate phase incrument and offset
         :type Fclk: float
         """
+        self.dirty = True
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
@@ -64,7 +63,8 @@ class PulseBlaster(Source):
             freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)
             ttlOuts = instruction[60:72]
             data = int(instruction[72:92],2)
-            opcode = instruction[92:96]
+            opcode = int(instruction[92:96],2)
+            opcode = PulseBlaster.opcodeDict.keys()[list(PulseBlaster.opcodeDict.values).index(opcode)]
             delay = instruction[96:128]
             print(f"Instruction {i}: phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}")
             i += 1
@@ -76,10 +76,17 @@ class PulseBlaster(Source):
     def update(self):
         bytes_array = bytearray()
         for instruction in self.instruction_list:
-            lowerInstruction = int(instruction[:64],2)
-            upperInstruction = int(instruction[64:],2)
-            bytes_array += lowerInstruction.to_bytes(8, byteorder='little', signed=False)
-            bytes_array += upperInstruction.to_bytes(8, byteorder='little', signed=False)
+            for i in range(15,-1,-1):
+                print(i)
+                currentByte = int(instruction[i*8:(i+1)*8],2)
+                bytes_array += currentByte.to_bytes(1, byteorder="big", signed=False)    
+            
+            
+            
+        # lowerInstruction = int(instruction[:64],2)
+        # upperInstruction = int(instruction[64:],2)
+        # bytes_array += lowerInstruction.to_bytes(8, byteorder='big', signed=False)
+        # bytes_array += upperInstruction.to_bytes(8, byteorder='big', signed=False)
 
         return bytes_array, "api/pulseblaster"
 
