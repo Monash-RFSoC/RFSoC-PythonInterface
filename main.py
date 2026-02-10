@@ -1,28 +1,26 @@
-from RFBuilder2 import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType
+
+from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType
+import numpy as np
+import time
+
 
 def main():
     board = RFSOC4x2()
 
-    rf_builder = RFBuilder(board, "192.168.2.69", 8080)
+    rf_builder = RFBuilder(board, "169.254.2.69", 8080)
     
     dacs = rf_builder.get_dacs()
-    
     adcs = rf_builder.get_adcs()
-    
-    
-    rf_builder.register_connection(adcs[0], dacs[0])
- 
-    awg = ArbitraryWaveformGenerator(WaveType.SINE, 3999e6)
-    
+
+    print([dac.name for dac in dacs])
+    print([adc.name for adc in adcs])
+
+    awg = ArbitraryWaveformGenerator(WaveType.SINE, 1111e6, tolerance=0.1, max_samples=1e9)
+
     rf_builder.register_block(awg)
-    
-    rf_builder.register_connection(awg, dacs[1])
 
     print(rf_builder)
-
     print(str(rf_builder.update()))
-
-
 
 
 

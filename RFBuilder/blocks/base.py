@@ -8,6 +8,7 @@ class RFBlock(ABC):
         self.attributes = {}
         self.dirty = True
         self.registered = False
+        self.custom_update = False
 
     def to_dict(self):
         block = {

@@ -1,63 +1,134 @@
-from platform import system
-from .RFBlocks.Base import RFBlock, Port
+from abc import ABC
+import time
+from .boards.boards import Board
+from .blocks.base import RFBlock
+from .blocks.sinks.dac import DAC
+from .blocks.sources.adc import ADC
 
-class RFBuilder():
-    def __init__(self):
-        self.blocks = []
+from .networking import send_http_data
 
-    def add_block(self, block: RFBlock) -> int:
-        if not hasattr(block, 'to_dict'):
-            raise ValueError("Block must have a to_dict method.")
+class RFBuilder(ABC):
+    def __init__(self, board: Board, ip: str, port: int):
+        # RFBuilder information
+        self.board = board
+        self.blocks : list[RFBlock] = [] 
+        self.connections : list[tuple[int, int]] = []
+        self.connections_dirty : bool = False
         
-        if not isinstance(block, RFBlock):
-            raise TypeError("Block must be an instance of RFBlock or its subclasses.")
+        # RFBuilder Networking Information
+        self.ip = ip
+        self.port = port
+        
+        # Register all available DACs
+        for dac in self.board.get_dacs():
+            block = DAC(dac["name"], dac["id"])
+            self.register_block(block)
 
-        block.id = str(len(self.blocks) + 1)
+        for adc in self.board.get_adcs():
+            block = ADC(adc["name"], adc["id"])
+            self.register_block(block)
+
+
+    def register_block(self, block: RFBlock):
+        for i in self.blocks:
+            if i.name == block.name:
+                raise KeyError("Attempted to add duplicate block to system")
 
         self.blocks.append(block)
-        return block.id
+        block.register_block()
 
-    def add_connection(self, source: int, sink: int):
-        source_block = next((block for block in self.blocks if block.id == source), None)
-        if source_block is None:
-            raise ValueError(f"Source block with id {source} not found.")
+    def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
+        if not source_block.registered:
+            raise ModuleNotFoundError(f"The {source_block} module has not been registered with an RFBuilder system.")
         
-        sink_block = next((block for block in self.blocks if block.id == sink), None)
-        if sink_block is None:
-            raise ValueError(f"Sink block with id {sink} not found.")
+        if not sink_block.registered:
+            raise ModuleNotFoundError(f"The {sink_block} module has not been registered with an RFBuilder system.")
         
-        source_port = next((port for port in source_block.ports if (port.direction == "output" and port.connection == None)), None)
-        if source_port is None:
-            raise ValueError(f"No available output port found in source block with id {source}.")
+        source_port = source_block.get_ports()[0]
+        sink_port = sink_block.get_ports()[0]
         
-        sink_port = next((port for port in sink_block.ports if (port.direction == "input" and port.connection == None)), None)
-        if sink_port is None:
-            raise ValueError(f"No available input port found in sink block with id {sink}.")
-        
-        source_port.connect(sink_port)
+        if not source_port:
+            raise ConnectionError(f"{source_block} does not have an available output port.")
+            
+        # print(sink_port)
+        if not sink_port:
+            raise ConnectionError(f"{sink_block} does not have an available input port.")
 
-    def construct_packet(self) -> dict:
-        data = {
-            "request-type": "build-system",
-            "system": self.to_dict()
-        }
-        return data
+        source_port.register_connection()
+        sink_port.register_connection()
+        
+        self.connections.append([source_port.id, sink_port.id])
+        self.connections_dirty = True
 
-    def to_dict(self):
-        _dict = {
-            "blocks": [block.to_dict() for block in self.blocks],
+    def update(self):
+        # Export the RFBuilder system to JSON for the RFSoC to process.
+        system = {
+            "blocks": []
         }
 
-        return _dict
+        update_queue = []
+
+        for block in self.blocks:
+            if block.dirty:
+                block.dirty = False
+                system["blocks"].append(block.to_dict())
+                if block.custom_update:
+                    update_queue.append(block)
+                
+        if self.connections_dirty:
+            system["connections"] = self.connections
+
+        request = {
+            "request-type" : "build_system",
+            "system" : system
+        }
+
+        # Default system update
+        send_http_data(request, "api/system", self.ip, self.port)
+
+        # time.sleep(0.25) # Wait for the system to update before sending custom updates
+        
+        # Custom updates for blocks that require it
+        for block in update_queue:
+            data, endpoint = block.update()
+            send_http_data(data, endpoint, self.ip, self.port)
+
+        return system
+
+    def get_dacs(self):
+        dacs = []
+        
+        for block in self.blocks:
+            if "dac" in block.name:
+                dacs.append(block)
+
+        return dacs
+
+    def get_adcs(self):
+        adcs = []
+        
+        for block in self.blocks:
+            if "adc" in block.name:
+                adcs.append(block)
+                
+                
+        return adcs
 
     def __str__(self):
-        _str = "----- RFBuilder System Overview -----\n"
-        _str += f"    Number of blocks: {len(self.blocks)}\n"
-        _str += "-------------------------------------\n"
+        output = ""
+        
+        output += "┌─────────────────────────────────┐\n"
+        output += "│        RFBuilder Layout         │\n"
+        output += "└─────────────────────────────────┘\n\n"
+        output += f"\tBoard : {str(self.board)}\n"
+
+        # print the RF capabilities of the board
+        output += f"\tDACs : {self.board.get_dacs()}\n"
+        output += f"\tADCs : {self.board.get_adcs()}\n"
+
+        output += "\n──────────────────────────────────────────────────────────────────\n\n"
+        
         for block in self.blocks:
-            _str += str(block)
-            _str += "\n    ---\n"
+            output += f"\t{str(block)}"
 
-        _str += "\n\n    ---\n"
-
-        return _str
+        return output

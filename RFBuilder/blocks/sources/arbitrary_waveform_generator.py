@@ -21,7 +21,9 @@ class ArbitraryWaveformGenerator(Source):
         self.max_samples: int = max_samples
         
         super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)])
-        
+    
+        self.custom_update = True
+
     def set_freq(self, freq: float):
         self.freq = freq
         self.dirty = True
@@ -33,7 +35,7 @@ class ArbitraryWaveformGenerator(Source):
     def generate_waveform(self):
         SAMPLE_RATE = 8000000000
         BYTES_PER_SAMPLE = 2  # Each sample is 2 bytes (int16)
-        byte_boundary = 4096
+        byte_boundary = 4096 * 2
 
         # Find the best sample count that aligns to byte boundary and gets within 50kHz of desired frequency
         # We want: actual_freq = SAMPLE_RATE / (numSamples / cycles)
@@ -118,6 +120,17 @@ class ArbitraryWaveformGenerator(Source):
         _array = ((_array) * self.amplitude).astype(np.int16)
 
         return _array.tolist(), numBytes
+        
+
+    def update(self):
+        wave_data, num_bytes = self.generate_waveform()
+        
+        bytes_array = bytearray()
+        for sample in wave_data:
+            bytes_array += sample.to_bytes(2, byteorder='little', signed=True)
+
+        return bytes_array, "api/stream"
+
         
     def to_dict(self):
         wave_data, num_bytes = self.generate_waveform()
