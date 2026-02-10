@@ -1,5 +1,5 @@
 from .sources.arbitrary_waveform_generator import ArbitraryWaveformGenerator, WaveType
 from .sources.arbitrary_data_generator import ArbitraryDataGenerator
+from .sources.pulse_blaster import PulseBlaster
 
-
-__all__ = ["ArbitraryWaveformGenerator", "WaveType", "ArbitraryDataGenerator"]
+__all__ = ["ArbitraryWaveformGenerator", "WaveType", "ArbitraryDataGenerator","PulseBlaster"]
