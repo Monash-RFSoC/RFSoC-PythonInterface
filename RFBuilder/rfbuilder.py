@@ -91,7 +91,7 @@ class RFBuilder(ABC):
         # Custom updates for blocks that require it
         for block in update_queue:
             data, endpoint = block.update()
-            print(data)
+            #print(data)
             send_http_data(data, endpoint, self.ip, self.port)
 
         return system
