@@ -1,35 +1,22 @@
 
 from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType, PulseBlaster
+from RFBuilder import Clock_Config
 import numpy as np
 import time
 
 
-def main():
-    board = RFSOC4x2()
+board = RFSOC4x2()
+rf_builder = RFBuilder(board, "192.168.137.69", 8080)
 
-    rf_builder = RFBuilder(board, "192.168.137.69", 8080)
-    
-    dacs = rf_builder.get_dacs()
-    adcs = rf_builder.get_adcs()
-
-    print([dac.name for dac in dacs])
-    print([adc.name for adc in adcs])
-
-    #awg = ArbitraryWaveformGenerator(WaveType.SINE, 1111e6, tolerance=0.1, max_samples=1e9)
-
-    #rf_builder.register_block(awg)
-    
-    pb = PulseBlaster()
-    pb.add_instruction(0,80,0b000000001010,0,"CONT",600000)
-    # pb.add_instruction(0,200,0b000000000101,0,"CONT",3000000)
-    pb.add_instruction(0,0,0b000000000000,0,"STOP",0)
-    
-    rf_builder.register_block(pb)
-    print(rf_builder)
-    print(str(rf_builder.update()))
+rf_builder.configure_clock(ref=Clock_Config.Ext_Ref)
 
 
+dacs = rf_builder.get_dacs()
 
-if __name__ == "__main__":
-    main()
-    
+awg = ArbitraryWaveformGenerator(WaveType.SINE, 500e6)
+
+rf_builder.register_block(awg)
+rf_builder.register_connection(awg, dacs[0])
+
+
+rf_builder.update()

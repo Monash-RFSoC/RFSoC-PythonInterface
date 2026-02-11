@@ -1,4 +1,6 @@
 from abc import ABC
+from enum import Enum
+
 import time
 from .boards.boards import Board
 from .blocks.base import RFBlock
@@ -6,6 +8,10 @@ from .blocks.sinks.dac import DAC
 from .blocks.sources.adc import ADC
 
 from .networking import send_http_data
+
+class Clock_Config(Enum):
+    Ext_Ref = "ext_ref"
+    Int_Ref = "int_ref"
 
 class RFBuilder(ABC):
     def __init__(self, board: Board, ip: str, port: int):
@@ -95,6 +101,14 @@ class RFBuilder(ABC):
             send_http_data(data, endpoint, self.ip, self.port)
 
         return system
+    
+    def configure_clock(self, ref: Clock_Config):
+        if ref == Clock_Config.Ext_Ref:
+            pass
+        elif ref == Clock_Config.Int_Ref:
+            pass
+        else:
+            raise ValueError("Unkown Clock Reference provided, must be either Ext_Ref or Int_Ref")
 
     def get_dacs(self):
         dacs = []
