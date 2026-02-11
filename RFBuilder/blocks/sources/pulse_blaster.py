@@ -93,8 +93,6 @@ class PulseBlaster(Source):
         for instruction in self.instruction_list:
             for i in range(PulseBlaster.instructionLength/8): 
                 bytes_array += instruction[i*8:(i+1)*9].to_bytes(1, byteorder='little', signed=False)
-            
-
         return bytes_array, "api/pulseblaster"
 
     def __str__(self):

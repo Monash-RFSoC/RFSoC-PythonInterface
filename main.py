@@ -19,11 +19,7 @@ def main():
 
     #rf_builder.register_block(awg)
     
-    pb = PulseBlaster()
-    pb.add_instruction(0,80,0b000000001010,0,"CONT",600000)
-    # pb.add_instruction(0,200,0b000000000101,0,"CONT",3000000)
-    pb.add_instruction(0,0,0b000000000000,0,"STOP",0)
-    
+    pb = PulseBlaster()    
     rf_builder.register_block(pb)
     pb.add_instruction(0,0,0,10,0b1100,0,"CONT",400*10**6)
     pb.add_instruction(0,0,0,20,0b0100,0,"CONT",400*10**6)
