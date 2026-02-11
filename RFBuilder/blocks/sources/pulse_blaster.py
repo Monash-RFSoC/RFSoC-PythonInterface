@@ -49,6 +49,7 @@ class PulseBlaster(Source):
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
+        phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
         phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk)#used to determin the frequency
         phaseOffset = round(2**PulseBlaster.phaseWordBits*phaseWord/360)
         instructionString=format(int(phasehopFlag),"01b")+format(int(resyncFlag),"01b")+format(int(phaseOffset),"028b")+format(int(phaseIncr),"030b")+format(int(ttlStates),"012b")+format(int(dataField),"020b")+format(PulseBlaster.opcodeDict[opcode],"004b")+format(int(delayCounter),"032b") 
@@ -62,7 +63,7 @@ class PulseBlaster(Source):
             phaseHopFlag = bool(int(instruction[0]))
             resyncFlag = bool(int(instruction[1]))
             phase = int(instruction[2:30],2)
-            phase = phase*360/(2**PulseBlaster.phaseWordBits)
+            phase = phase*360/(2**PulseBlaster.phaseWordBits)*4
             freq = int(instruction[30:60],2)
             freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)*16
             ttlOuts = instruction[60:72]
