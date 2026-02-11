@@ -7,7 +7,7 @@ import time
 def main():
     board = RFSOC4x2()
 
-    rf_builder = RFBuilder(board, "49.127.24.69", 8080)
+    rf_builder = RFBuilder(board, "192.168.137.69", 8080)
     
     dacs = rf_builder.get_dacs()
     adcs = rf_builder.get_adcs()
@@ -20,6 +20,10 @@ def main():
     #rf_builder.register_block(awg)
     
     pb = PulseBlaster()
+    pb.add_instruction(0,80,0b000000001010,0,"CONT",600000)
+    # pb.add_instruction(0,200,0b000000000101,0,"CONT",3000000)
+    pb.add_instruction(0,0,0b000000000000,0,"STOP",0)
+    
     rf_builder.register_block(pb)
     pb.add_instruction(0,0,0,10,0b1100,0,"CONT",400*10**6)
     pb.add_instruction(0,0,0,20,0b0100,0,"CONT",400*10**6)
