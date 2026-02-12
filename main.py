@@ -26,6 +26,9 @@ def main():
     pb.add_instruction(0,0,0,0,0b1111,0,"STOP",50*10**6)
     pb.print_program()
 
+    rf_builder.set_pin(pb.trigger,1) #IO to set, value to set it to
+    rf_builder.pulse_pin(pb.run,10) #IO to set, Microseconds to hold high
+
     print(rf_builder)
     print(str(rf_builder.update()))
 
