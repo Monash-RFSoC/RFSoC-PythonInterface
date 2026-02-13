@@ -14,6 +14,35 @@ adcs = rf_builder.get_adcs()
 logger = DataLogger()
 rf_builder.register_block(logger)
 
+
+awg = ArbitraryWaveformGenerator(WaveType.SINE, 500e6, amplitude=5, tolerance=0.01, max_samples=100e9)
+rf_builder.register_block(awg)
+
+mixer = Mixer()
+rf_builder.register_block(mixer)
+
+# pb = PulseBlaster()
+# rf_builder.register_block(pb)
+# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
+# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "CONT", 0)
+
+
+
+rf_builder.register_connection(adcs[0], mixer) # Connect ADC_A to Mixer
+rf_builder.register_connection(awg, mixer) # Connect AWG to Mixer
+rf_builder.register_connection(mixer, dacs[0]) # Connect Mixer to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_A to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect AWG to DAC_A
+
+# rf_builder.register_connection(pb, dacs[0]) # Connect AWG to DAC_A
+# rf_builder.register_connection(awg, dacs[0]) # Connect AWG to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_B to Data Logger
+# rf_builder.register_connection(awg, logger)
+rf_builder.update()
+
 plt.ion()
 fig, ax = plt.subplots()
 line, = ax.plot([], [])
@@ -27,28 +56,3 @@ while True:
     fig.canvas.draw_idle()
     fig.canvas.flush_events()
 
-# awg = ArbitraryWaveformGenerator(WaveType.SINE, 300e6, amplitude=16000, tolerance=0.01, max_samples=100e9)
-# rf_builder.register_block(awg)
-
-# mixer = Mixer()
-# rf_builder.register_block(mixer)
-
-# pb = PulseBlaster()
-# rf_builder.register_block(pb)
-# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
-# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "CONT", 0)
-
-
-
-# rf_builder.register_connection(adcs[0], mixer) # Connect ADC_A to Mixer
-# rf_builder.register_connection(awg, mixer) # Connect AWG to Mixer
-# rf_builder.register_connection(mixer, dacs[0]) # Connect Mixer to DAC_A
-
-# rf_builder.register_connection(adcs[0], dacs[0]) # Connect ADC_A to DAC_A
-
-# rf_builder.register_connection(awg, dacs[0]) # Connect AWG to DAC_A
-
-# rf_builder.register_connection(pb, dacs[0]) # Connect AWG to DAC_A
-
-
-# rf_builder.update()

@@ -24,6 +24,9 @@ class DataLogger(Sink):
 
 
     def read(self) -> tuple[np.ndarray, np.ndarray]:
+        if self.registered == False:
+            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
+        
         SAMPLE_RATE = 5e12
         time_step = 1 / SAMPLE_RATE
 
