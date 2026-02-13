@@ -52,4 +52,7 @@ class Source(RFBlock):
     pass
 
 
+class Processor(RFBlock):
+    def __init__(self, name: str, ports: list[Port]):
 
+        super().__init__(name, ports)
