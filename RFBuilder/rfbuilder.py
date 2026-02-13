@@ -41,7 +41,7 @@ class RFBuilder(ABC):
                 raise KeyError("Attempted to add duplicate block to system")
 
         self.blocks.append(block)
-        block.register_block()
+        block.register_block(self.ip, self.port)
 
     def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:

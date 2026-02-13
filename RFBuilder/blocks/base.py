@@ -28,7 +28,7 @@ class RFBlock(ABC):
                 
         return output_ports
         
-    def register_block(self):
+    def register_block(self, ip: str = "", port: int = 0):
         self.registered = True
         
     @abstractmethod
