@@ -17,6 +17,7 @@ rf_builder.register_block(mixer)
 pb = PulseBlaster()
 rf_builder.register_block(pb)
 pb.add_instruction(0, 0, 0, 500, 0, 0, "WAIT", 0)
+pb.add_instruction(0, 0, 0, 500, 0, 0, "CONT", 0)
 
 
 

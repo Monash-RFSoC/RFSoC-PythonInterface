@@ -91,9 +91,11 @@ class PulseBlaster(Source):
     def update(self):
         bytes_array = bytearray()
         for instruction in self.instruction_list:
-            for i in range(int(PulseBlaster.instructionLength/8)): 
-                print(instruction[i*8:((i+1)*8)])
-                bytes_array += int(instruction[i*8:((i+1)*8)]).to_bytes(1, byteorder='little', signed=False)
+            #instruction = instruction[::-1]
+            for i in range(int(PulseBlaster.instructionLength/8)-1,-1,-1): 
+                #print(i)
+                bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
+        
         return bytes_array, "api/pulseblaster"
 
     def __str__(self):
