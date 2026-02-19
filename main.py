@@ -21,13 +21,13 @@ def main():
     
     pb = PulseBlaster()    
     rf_builder.register_block(pb)
-    pb.add_instruction(0,0,0,10,0b1111,0,"CONT",50*10**6)
-    pb.add_instruction(0,0,0,20,0b1111,0,"CONT",50*10**6)
+    pb.add_instruction(0,0,0,10,0b1111,0,"WAIT",50*10**6)
+    pb.add_instruction(0,0,0,20,0b1001,0,"CONT",50*10**6)
     pb.add_instruction(0,0,0,0,0b1111,0,"STOP",50*10**6)
     pb.print_program()
 
-    rf_builder.set_pin(pb.trigger,1) #IO to set, value to set it to
-    rf_builder.pulse_pin(pb.run,10) #IO to set, Microseconds to hold high
+    #rf_builder.set_pin(pb.ios["trigger"],1) #IO to set, value to set it to
+    #rf_builder.pulse_pin(pb.ios["run"],10) #IO to set, Microseconds to hold high
 
     print(rf_builder)
     print(str(rf_builder.update()))

@@ -1,5 +1,6 @@
 from ..base import Source
 from ..port import Port, PortDirection
+from ..io import IO, IODirection
 
 import numpy as np
 
@@ -19,7 +20,11 @@ class PulseBlaster(Source):
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
+        
+        ioDict = {"run": IO(IODirection.INPUT,"api/pulseblaster/run"),
+                  "trigger": IO(IODirection.INPUT, "api/pulseblaster/trigger")}
+        
+        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)],ioDict)
         self.custom_update = True
 
     def add_instruction(self,phasehopFlag: bool,resyncFlag: bool,phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):

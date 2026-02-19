@@ -1,5 +1,6 @@
 from ..base import Source
 from ..port import Port, PortDirection
+from ..io import IO, IODirection
 
 import numpy as np
 
@@ -20,7 +21,7 @@ class ArbitraryWaveformGenerator(Source):
         self.tolerance: int = tolerance
         self.max_samples: int = max_samples
         
-        super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)])
+        super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)],[])
     
         self.custom_update = True
 
