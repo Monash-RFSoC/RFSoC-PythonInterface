@@ -1,7 +1,7 @@
-from ..base import Source
+from ..base import Sink
 from ..port import Port, PortDirection
 
-class DAC(Source):
+class DAC(Sink):
     def __init__(self, tile: str, id: int):
         ports = [Port(PortDirection.INPUT, id)]
         super().__init__(tile, ports)

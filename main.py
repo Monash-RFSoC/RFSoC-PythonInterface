@@ -1,39 +1,58 @@
 
-from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType, PulseBlaster
+from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType, PulseBlaster, Mixer, DataLogger
+from RFBuilder.networking import send_http_data
 import numpy as np
-import time
+import matplotlib.pyplot as plt
+
+board = RFSOC4x2()
+
+rf_builder = RFBuilder(board, "169.254.2.69", 8080)
+
+dacs = rf_builder.get_dacs()
+adcs = rf_builder.get_adcs()
+
+logger = DataLogger()
+rf_builder.register_block(logger)
 
 
-def main():
-    board = RFSOC4x2()
+awg = ArbitraryWaveformGenerator(WaveType.SINE, 500e6, amplitude=5, tolerance=0.01, max_samples=100e9)
+rf_builder.register_block(awg)
 
-    rf_builder = RFBuilder(board, "192.168.137.69", 8080)
-    
-    dacs = rf_builder.get_dacs()
-    adcs = rf_builder.get_adcs()
+mixer = Mixer()
+rf_builder.register_block(mixer)
 
-    print([dac.name for dac in dacs])
-    print([adc.name for adc in adcs])
-
-    #awg = ArbitraryWaveformGenerator(WaveType.SINE, 10e6, tolerance=0.1, max_samples=1e9, amplitude=2**15-1)
-
-    #rf_builder.register_block(awg)
-    
-    pb = PulseBlaster()    
-    rf_builder.register_block(pb)
-    pb.add_instruction(0,0,0,10,0b1111,0,"WAIT",50*10**6)
-    pb.add_instruction(0,0,0,20,0b1001,0,"CONT",50*10**6)
-    pb.add_instruction(0,0,0,0,0b1111,0,"STOP",50*10**6)
-    pb.print_program()
-
-    #rf_builder.set_pin(pb.ios["trigger"],1) #IO to set, value to set it to
-    #rf_builder.pulse_pin(pb.ios["run"],10) #IO to set, Microseconds to hold high
-
-    print(rf_builder)
-    print(str(rf_builder.update()))
+# pb = PulseBlaster()
+# rf_builder.register_block(pb)
+# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
+# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "CONT", 0)
 
 
 
-if __name__ == "__main__":
-    main()
-    
+rf_builder.register_connection(adcs[0], mixer) # Connect ADC_A to Mixer
+rf_builder.register_connection(awg, mixer) # Connect AWG to Mixer
+rf_builder.register_connection(mixer, dacs[0]) # Connect Mixer to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_A to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect AWG to DAC_A
+
+# rf_builder.register_connection(pb, dacs[0]) # Connect AWG to DAC_A
+# rf_builder.register_connection(awg, dacs[0]) # Connect AWG to DAC_A
+
+# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_B to Data Logger
+# rf_builder.register_connection(awg, logger)
+rf_builder.update()
+
+plt.ion()
+fig, ax = plt.subplots()
+line, = ax.plot([], [])
+plt.show()
+
+while True:
+    wave, time = logger.read()
+    line.set_data(time, wave)
+    ax.relim()
+    ax.autoscale_view()
+    fig.canvas.draw_idle()
+    fig.canvas.flush_events()
+

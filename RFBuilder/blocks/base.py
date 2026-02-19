@@ -32,7 +32,7 @@ class RFBlock(ABC):
     def get_ios(self) -> dict[str, IO]:
         return self.ios
         
-    def register_block(self):
+    def register_block(self, ip: str = "", port: int = 0):
         self.registered = True
         
     @abstractmethod
@@ -56,4 +56,7 @@ class Source(RFBlock):
     pass
 
 
+class Processor(RFBlock):
+    def __init__(self, name: str, ports: list[Port]):
 
+        super().__init__(name, ports)
