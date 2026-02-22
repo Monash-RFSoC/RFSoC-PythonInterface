@@ -94,11 +94,11 @@ class PulseBlaster(Source):
             raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
         
         if(state == None):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to pulse
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to pulse
         elif(state == 0):
-            response = send_http_data(bytearray([0x00]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn off
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn off
         else:
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn on
+            response = send_http_data(bytearray([0x03]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn on
         
         return response
 
@@ -107,11 +107,11 @@ class PulseBlaster(Source):
             raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
         
         if(state == None):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/run",self.ip,self.port) #tells it to pulse
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/run",self.ip,self.port) #tells it to pulse
         elif(state == 0):
-            response = send_http_data(bytearray([0x00]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn off
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn off
         else:
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn on
+            response = send_http_data(bytearray([0x03]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn on
         
         return response
 
@@ -120,11 +120,11 @@ class PulseBlaster(Source):
             raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
         
         if(state == None):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/reset",self.ip,self.port) #tells it to pulse
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/reset",self.ip,self.port) #tells it to pulse
         elif(state == 0):
-            response = send_http_data(bytearray([0x00]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn off
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn off
         else:
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn on
+            response = send_http_data(bytearray([0x03]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn on
         
         return response
 
