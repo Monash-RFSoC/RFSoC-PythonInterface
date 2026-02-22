@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
 from .port import Port
-from .io import IO
 
 class RFBlock(ABC):
-    def __init__(self, name: str, ports: list[Port], ios: dict[str, IO]) -> None:
+    def __init__(self, name: str, ports: list[Port]) -> None:
         self.name = name
         self.ports = ports
-        self.ios = ios
         self.attributes = {}
         self.dirty = True
         self.registered = False
@@ -28,12 +26,11 @@ class RFBlock(ABC):
                 output_ports.append(port)
 
         return output_ports
-    
-    def get_ios(self) -> dict[str, IO]:
-        return self.ios
         
     def register_block(self, ip: str = "", port: int = 0):
         self.registered = True
+        #self.ip = ip
+        #self.port = port
         
     @abstractmethod
     def __str__(self):
@@ -41,18 +38,18 @@ class RFBlock(ABC):
 
 
 class Sink(RFBlock):
-    def __init__(self, name: str, ports: list[Port], ios: list[IO]):
+    def __init__(self, name: str, ports: list[Port]):
         # TODO: Check that all ports are inputs
 
-        super().__init__(name, ports, ios)
+        super().__init__(name, ports)
     pass
 
 
 class Source(RFBlock):
-    def __init__(self, name: str, ports: list[Port], ios: list[IO]):
+    def __init__(self, name: str, ports: list[Port]):
         # TODO: Check that all ports are outputs
         
-        super().__init__(name, ports, ios)
+        super().__init__(name, ports)
     pass
 
 

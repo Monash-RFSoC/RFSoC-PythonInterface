@@ -1,6 +1,5 @@
 from ..base import Source
 from ..port import Port, PortDirection
-from ..io import IO, IODirection
 
 import numpy as np
 

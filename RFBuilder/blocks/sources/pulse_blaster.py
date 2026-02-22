@@ -1,8 +1,7 @@
 from ..base import Source
 from ..port import Port, PortDirection
-from ..io import IO, IODirection
+from ...networking import send_http_data
 
-import numpy as np
 
 class PulseBlaster(Source):
     opcodeDict = {"CONT":0,
@@ -20,13 +19,18 @@ class PulseBlaster(Source):
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
+        self.ip = None
+        self.port = None
         
-        ioDict = {"run": IO(IODirection.INPUT,"api/pulseblaster/run"),
-                  "trigger": IO(IODirection.INPUT, "api/pulseblaster/trigger")}
-        
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)],ioDict)
+        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
         self.custom_update = True
 
+    def register_block(self, ip: str = "", port: int = 0):
+        self.ip = ip
+        self.port = port
+
+        return super().register_block()
+    
     def add_instruction(self,phasehopFlag: bool,resyncFlag: bool,phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
@@ -53,6 +57,7 @@ class PulseBlaster(Source):
         self.dirty = True
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
+        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
         phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk)#used to determin the frequency
@@ -84,14 +89,46 @@ class PulseBlaster(Source):
         self.instruction_list = []
 
 
-    def trigger(self):
-        print("PulseBlaster.trigger() is not currently implimented")
+    def trigger(self, state: int = None):
+        if(self.registered == False):
+            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
+        
+        if(state == None):
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to pulse
+        elif(state == 0):
+            response = send_http_data(bytearray([0x00]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn off
+        else:
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn on
+        
+        return response
 
-    def run(self):
-        print("PulseBlaster.run() is not currently implimented")
+    def run(self, state: int = None): 
+        if(self.registered == False):
+            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
+        
+        if(state == None):
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/run",self.ip,self.port) #tells it to pulse
+        elif(state == 0):
+            response = send_http_data(bytearray([0x00]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn off
+        else:
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn on
+        
+        return response
 
-    def reset(self):
-        print("PulseBlaster.reset() is not currently implimented")
+    def reset(self, state: int = None):
+        if(self.registered == False):
+            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
+        
+        if(state == None):
+            response = send_http_data(bytearray([0x02]),"api/pulseblaster/reset",self.ip,self.port) #tells it to pulse
+        elif(state == 0):
+            response = send_http_data(bytearray([0x00]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn off
+        else:
+            response = send_http_data(bytearray([0x01]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn on
+        
+        return response
+
+        
 
     def update(self):
         bytes_array = bytearray()
@@ -101,7 +138,7 @@ class PulseBlaster(Source):
                 #print(i)
                 bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
         
-        return bytes_array, "api/pulseblaster"
+        return bytes_array, "api/pulseblaster/instructions"
 
     def __str__(self):
         output = ""

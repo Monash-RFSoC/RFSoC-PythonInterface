@@ -6,7 +6,6 @@ from .boards.boards import Board
 from .blocks.base import RFBlock
 from .blocks.sinks.dac import DAC
 from .blocks.sources.adc import ADC
-from .blocks.io import IO, IODirection
 
 from .networking import send_http_data
 
@@ -130,24 +129,6 @@ class RFBuilder(ABC):
                 
         return adcs
     
-    def set_pin(self,io: IO, state: int):
-        """
-        Docstring for set_pin
-        
-        :param self: Class reference
-        :param block: A block in the RFBuilder system, must have IOs avalible to set
-        :type block: RFBlock
-        :param state: Spesified weather the pin is driven high or low, 1 for high, 0 for low
-        :type state: int
-        """
-        if(io.direction == IODirection.OUTPUT):
-            raise Exception("Cannot set the value of an IO of type OUTPUT")
-        elif(state != 0 or state != 1):
-            raise Exception("Value written to IO must be 0 or 1")
-        else:
-            send_http_data(state,io.endpoint)
-
-
     def __str__(self):
         output = ""
         

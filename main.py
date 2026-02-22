@@ -6,53 +6,34 @@ import matplotlib.pyplot as plt
 
 board = RFSOC4x2()
 
-rf_builder = RFBuilder(board, "169.254.2.69", 8080)
+rf_builder = RFBuilder(board, "192.168.137.69", 8080)
 
 dacs = rf_builder.get_dacs()
 adcs = rf_builder.get_adcs()
 
-logger = DataLogger()
-rf_builder.register_block(logger)
 
+pb = PulseBlaster()
+rf_builder.register_block(pb)
+#rf_builder.register_connection(pb,dacs[0])
+pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
+pb.add_instruction(0, 0, 0, 510, 0b1001, 0, "CONT", 0)
+pb.add_instruction(0,0,0,0,0,0,"STOP",0)
+pb.print_program()
 
-awg = ArbitraryWaveformGenerator(WaveType.SINE, 500e6, amplitude=5, tolerance=0.01, max_samples=100e9)
-rf_builder.register_block(awg)
+#rf_builder.update()
 
-mixer = Mixer()
-rf_builder.register_block(mixer)
-
-# pb = PulseBlaster()
-# rf_builder.register_block(pb)
-# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
-# pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "CONT", 0)
-
-
-
-rf_builder.register_connection(adcs[0], mixer) # Connect ADC_A to Mixer
-rf_builder.register_connection(awg, mixer) # Connect AWG to Mixer
-rf_builder.register_connection(mixer, dacs[0]) # Connect Mixer to DAC_A
-
-# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_A to DAC_A
-
-# rf_builder.register_connection(adcs[1], dacs[0]) # Connect AWG to DAC_A
-
-# rf_builder.register_connection(pb, dacs[0]) # Connect AWG to DAC_A
-# rf_builder.register_connection(awg, dacs[0]) # Connect AWG to DAC_A
-
-# rf_builder.register_connection(adcs[1], dacs[0]) # Connect ADC_B to Data Logger
-# rf_builder.register_connection(awg, logger)
-rf_builder.update()
-
-plt.ion()
-fig, ax = plt.subplots()
-line, = ax.plot([], [])
-plt.show()
-
+print("---USER INTERFACE---\n")
 while True:
-    wave, time = logger.read()
-    line.set_data(time, wave)
-    ax.relim()
-    ax.autoscale_view()
-    fig.canvas.draw_idle()
-    fig.canvas.flush_events()
-
+    print("Please input an integer coresponding to one of the following options")
+    userInput = input("0. Exit program\n1. Pulse start\n2. Pulse trigger\n")
+    if(userInput == "0"):
+        print("Exiting program. Have a nice day :)")
+        break
+    elif(userInput == "1"):
+        print("Pulsing run line on pulse blaster")
+        pb.run()
+    elif(userInput == "2"):
+        print("Pulsing trigger line on pulse blaster")
+        pb.trigger()
+    else:
+        print(f"Input of value {userInput} is not an avalible option. Please try again\n")
