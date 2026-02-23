@@ -19,10 +19,13 @@ class PulseBlaster(Source):
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
-        self.ip = None
-        self.port = None
+        pins = {"run":0,
+                     "trigger":0
+                     }
+        #self.ip = None
+        #self.port = None
         
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
+        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)],pins)
         self.custom_update = True
 
     def register_block(self, ip: str = "", port: int = 0):
@@ -87,48 +90,6 @@ class PulseBlaster(Source):
     def clean_program(self):
         self.dirty = True
         self.instruction_list = []
-
-
-    def trigger(self, state: int = None):
-        if(self.registered == False):
-            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
-        
-        if(state == None):
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to pulse
-        elif(state == 0):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn off
-        else:
-            response = send_http_data(bytearray([0x03]),"api/pulseblaster/trigger",self.ip,self.port) #tells it to turn on
-        
-        return response
-
-    def run(self, state: int = None): 
-        if(self.registered == False):
-            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
-        
-        if(state == None):
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/run",self.ip,self.port) #tells it to pulse
-        elif(state == 0):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn off
-        else:
-            response = send_http_data(bytearray([0x03]),"api/pulseblaster/run",self.ip,self.port) #tells it to turn on
-        
-        return response
-
-    def reset(self, state: int = None):
-        if(self.registered == False):
-            raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
-        
-        if(state == None):
-            response = send_http_data(bytearray([0x01]),"api/pulseblaster/reset",self.ip,self.port) #tells it to pulse
-        elif(state == 0):
-            response = send_http_data(bytearray([0x02]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn off
-        else:
-            response = send_http_data(bytearray([0x03]),"api/pulseblaster/reset",self.ip,self.port) #tells it to turn on
-        
-        return response
-
-        
 
     def update(self):
         bytes_array = bytearray()

@@ -9,7 +9,7 @@ class Mixer(Processor):
             Port(PortDirection.OUTPUT, 3)
         ]
 
-        super().__init__("mixer", ports)
+        super().__init__("mixer", ports,{})
     
     def __str__(self):
         output = ""

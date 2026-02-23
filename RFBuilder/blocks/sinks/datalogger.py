@@ -11,8 +11,8 @@ class DataLogger(Sink):
     def __init__(self):
         ports = [Port(PortDirection.INPUT, 4)]
 
-        self.ip = None
-        self.port = None
+        #self.ip = None
+        #self.port = None
 
         super().__init__("logger", ports)
 
