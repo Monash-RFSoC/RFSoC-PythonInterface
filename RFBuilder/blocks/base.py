@@ -46,11 +46,11 @@ class RFBlock(ABC):
         endpoint = "api/"+self.name+"/"+pin
         
         if(state == 0):
-            send_http_data(endpoint, bytearray([LOW]), self.ip, self.port)
-            self.pins.pin = 0
+            send_http_data(bytearray([LOW]), endpoint, self.ip, self.port)
+            self.pins[pin] = 0
         else:
             send_http_data(bytearray([HIGH]), endpoint, self.ip, self.port)
-            self.pins.pin = 1
+            self.pins[pin] = 1
 
         return 0 #TODO: have it return weather or not the request was sucsessful
     

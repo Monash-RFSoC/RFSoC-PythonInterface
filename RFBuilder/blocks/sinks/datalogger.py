@@ -14,7 +14,7 @@ class DataLogger(Sink):
         #self.ip = None
         #self.port = None
 
-        super().__init__("logger", ports)
+        super().__init__("logger", ports,{})
 
     def register_block(self, ip: str = "", port: int = 0):
         self.ip = ip
