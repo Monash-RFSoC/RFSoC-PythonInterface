@@ -1,4 +1,3 @@
-
 from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType, PulseBlaster, Mixer, DataLogger
 from RFBuilder.networking import send_http_data
 import numpy as np
@@ -19,9 +18,11 @@ pb.add_instruction(0, 0, 0, 510, 0b1111, 0, "WAIT", 0)
 pb.add_instruction(0, 0, 0, 510, 0b1001, 0, "CONT", 0)
 pb.add_instruction(0,0,0,0,0,0,"STOP",0)
 pb.print_program()
-pb.run(0)
-rf_builder.update()
 pb.get_pins()
+pb.set_pin("run",0)
+
+rf_builder.update()
+
 
 print("\n\n----------USER INTERFACE----------\n\n")
 while True:
