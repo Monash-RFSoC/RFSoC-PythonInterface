@@ -16,6 +16,7 @@ class PulseBlaster(Source):
     instructionLength = 128 #in bits
     phaseWordBits = 30
     Fclk = 500 #MHz
+    
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
@@ -60,7 +61,7 @@ class PulseBlaster(Source):
         self.dirty = True
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
-        
+        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster

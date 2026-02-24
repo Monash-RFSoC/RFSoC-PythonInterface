@@ -7,29 +7,43 @@ board = RFSOC4x2()
 
 rf_builder = RFBuilder(board, "192.168.137.69", 8080)
 
-#dacs = rf_builder.get_dacs()
-# awg = ArbitraryWaveformGenerator(WaveType.SINE, 500e6)
-# rf_builder.register_block(awg)
-
-logger = DataLogger()
-rf_builder.register_block(logger)
+dacs = rf_builder.get_dacs()
+#awg = ArbitraryWaveformGenerator(WaveType.SINE, 100e6)
+#rf_builder.register_block(awg)
+#logger = DataLogger()
+#rf_builder.register_block(logger)
 
 pb = PulseBlaster()
 rf_builder.register_block(pb)
-pb.set_pin("trigger",0)
 pb.set_pin("run",0)
-rf_builder.register_connection(pb,logger)
-pb.add_instruction(0, 0, 0, 100, 0b1111, 0, "WAIT", 0)
-pb.add_instruction(0, 0, 0, 4000, 0b0000, 0, "CONT", 2)
-pb.add_instruction(0, 0, 0, 100, 0b1001, 0, "CONT", 1*10**9)
-pb.add_instruction(0,0,0,0,0,0,"STOP",0)
-#pb.clean_program()
-pb.print_program()
-rf_builder.update()
-pb.get_pins()
 pb.set_pin("trigger",0)
-pb.pulse_pin("run")
+#mixer = Mixer()
+#rf_builder.register_block(mixer)
+#rf_builder.register_connection(pb,mixer)
+#rf_builder.register_connection(awg,mixer)
+rf_builder.register_connection(pb, dacs[0])
 
+#pb.add_instruction(0, 0, 0, 100, 0b001100000000, 0, "WAIT", 2) #0
+#pb.add_instruction(0, 0, 0, 0, 0b111100000000, 0, "STOP", 10) #1
+for i in range(10):
+    pb.add_instruction(0, 0, 0, 0, 0b001100000000, 0, "WAIT", 2*(i+1)) #0
+    pb.add_instruction(0, 0, 0, 0, 0b0000000000, 100, "LOOP", 2*(i+1)) #1
+    pb.add_instruction(0, 0, 0, 1000, 0b00000000000, 1+(3*i), "END_LOOP", 2*(i+1)) #2
+    pb.add_instruction(0, 0, 0, 0, 0b00010000000, 0, "CONT", 500*10**6)
+pb.add_instruction(0, 0, 0, 0, 0b111100000000, 0, "STOP", 10) #4
+
+#pb.add_instruction(0, 0, 0, 4000, 0b0000, 10, "LOOP", 2) #1
+#pb.add_instruction(0, 0, 0, 2000, 0b0000, 1, "END_LOOP", 2) #2
+#pb.add_instruction(0, 0, 0, 100, 0b1001, 0, "CONT", 1*10**9) #3
+#pb.add_instruction(0,0,0,0,0,0,"STOP",2) #4
+#pb.clean_program()
+#pb.print_program()
+rf_builder.update()
+#pb.pulse_pin("run")
+# pb.get_pins()
+# pb.set_pin("trigger",0)
+# pb.pulse_pin("run")
+# 
 # plt.ion()
 # fig, ax = plt.subplots()
 # line, = ax.plot([], [])
@@ -41,7 +55,7 @@ pb.pulse_pin("run")
 #    ax.autoscale_view()
 #    fig.canvas.draw_idle()
 #    fig.canvas.flush_events()
-# 
+
 print("\n\n----------USER INTERFACE----------\n\n")
 while True:
    print("Please input an integer coresponding to one of the following options")
