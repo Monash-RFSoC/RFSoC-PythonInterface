@@ -65,15 +65,18 @@ class PulseBlaster(Source):
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
-        phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
+        #phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
         if(delayCounter%2 != 0):
             raise ValueError("Delay must be an integer multiple of 2")
-        elif(delayCounter < 2):
-            raise ValueError("Delay must be at least 2ns")
-        delayCounter = delayCounter / 2 #each clock tick is 2ns, so a delay of 1000 nanoseconds is 500 clock ticks
+        elif(delayCounter < 4):
+            raise ValueError("Delay must be at least 4ns")
+        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
         phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk)#used to determin the frequency
-        phaseOffset = round(2**PulseBlaster.phaseWordBits*phaseWord/360)
-
+        phaseOffset = round((2**PulseBlaster.phaseWordBits)*phaseWord/360) 
+        #print(phaseOffset)
+        phaseOffset = phaseOffset >> 2
+        #print(phaseOffset)
+        #print(phaseIncr)
         instructionString=format(int(phasehopFlag),"01b")+format(int(resyncFlag),"01b")+format(int(phaseOffset),"028b")+format(int(phaseIncr),"030b")+format(int(ttlStates),"012b")+format(int(dataField),"020b")+format(PulseBlaster.opcodeDict[opcode],"004b")+format(int(delayCounter),"032b") 
         self.instruction_list.append(instructionString)
         self.num_instructions += 1 
