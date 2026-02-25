@@ -1,6 +1,7 @@
 from ..base import Source
 from ..port import Port, PortDirection
 from ...networking import send_http_data
+import os
 
 
 class PulseBlaster(Source):
@@ -79,6 +80,7 @@ class PulseBlaster(Source):
 
 
     def print_program(self):
+        """Prints out all instructions in the current program."""
         i = 0
         for instruction in self.instruction_list:
             phaseHopFlag = bool(int(instruction[0]))
@@ -89,15 +91,46 @@ class PulseBlaster(Source):
             freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)*16
             ttlOuts = instruction[60:72]
             data = int(instruction[72:92],2)
-            opcode = int(instruction[92:96])
-            opcode = next((k for k, v in PulseBlaster.opcodeDict.items() if v == opcode), None)
+            opcode = int(instruction[92:96],2)
+            for key in self.opcodeDict.keys():
+                if self.opcodeDict[key] == opcode:
+                    opcode = key
             delay = int(instruction[96:128],2)
             print(f"Instruction {i}: phase hop flag = {phaseHopFlag}, resync = {resyncFlag}, phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}, opcode = {opcode}, delay = {delay} clock cycles\n")
             i += 1
 
     def clean_program(self):
+        """Removes all instructions from the current program."""
         self.dirty = True
         self.instruction_list = []
+
+    def save_program(self,filename: str):
+        """
+        Save program to a text file in the current working directory which can later be reloaded using load_program.
+
+        :param filename: Name of the file to save the program in. Include file extension in filename
+        :type filename: string
+        """
+        #workingDirectory=os.getcwd()
+        fileHandler = open(filename,"w")
+        for entry in self.instruction_list:
+            fileHandler.write(entry+"\n")
+        fileHandler.close()
+
+    def load_program(self, filename: str):
+        """
+        Load a program from a textfile of the name "programName", make sure to include file extention.
+
+        :param filename: Name of the file containing the program. Include file extension in filename
+        :type filename: string
+        """
+        try:
+            fileHandler = open(filename,"r")
+        except FileNotFoundError:
+            print(f"load_program was unable to find {filename}")
+            return -1
+        programList = fileHandler.readlines()
+        self.instruction_list = programList
 
     def update(self):
         bytes_array = bytearray()
