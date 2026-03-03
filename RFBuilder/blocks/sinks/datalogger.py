@@ -11,10 +11,10 @@ class DataLogger(Sink):
     def __init__(self):
         ports = [Port(PortDirection.INPUT, 4)]
 
-        self.ip = None
-        self.port = None
+        #self.ip = None
+        #self.port = None
 
-        super().__init__("logger", ports)
+        super().__init__("logger", ports,{})
 
     def register_block(self, ip: str = "", port: int = 0):
         self.ip = ip

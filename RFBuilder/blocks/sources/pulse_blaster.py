@@ -1,7 +1,8 @@
 from ..base import Source
 from ..port import Port, PortDirection
+from ...networking import send_http_data
+import os
 
-import numpy as np
 
 class PulseBlaster(Source):
     opcodeDict = {"CONT":0,
@@ -16,12 +17,25 @@ class PulseBlaster(Source):
     instructionLength = 128 #in bits
     phaseWordBits = 30
     Fclk = 500 #MHz
+    
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
+        pins = {"run":0,
+                     "trigger":0
+                     }
+        #self.ip = None
+        #self.port = None
+        
+        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)],pins)
         self.custom_update = True
 
+    def register_block(self, ip: str = "", port: int = 0):
+        self.ip = ip
+        self.port = port
+
+        return super().register_block()
+    
     def add_instruction(self,phasehopFlag: bool,resyncFlag: bool,phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
@@ -48,16 +62,28 @@ class PulseBlaster(Source):
         self.dirty = True
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
+        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
+        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
-        phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
+        #phaseWord = phaseWord / 4 #compensate for shifting done by the pulseblaster
+        if(delayCounter%2 != 0):
+            raise ValueError("Delay must be an integer multiple of 2")
+        elif(delayCounter < 4):
+            raise ValueError("Delay must be at least 4ns")
+        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
         phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk)#used to determin the frequency
-        phaseOffset = round(2**PulseBlaster.phaseWordBits*phaseWord/360)
+        phaseOffset = round((2**PulseBlaster.phaseWordBits)*phaseWord/360) 
+        #print(phaseOffset)
+        phaseOffset = phaseOffset >> 2
+        #print(phaseOffset)
+        #print(phaseIncr)
         instructionString=format(int(phasehopFlag),"01b")+format(int(resyncFlag),"01b")+format(int(phaseOffset),"028b")+format(int(phaseIncr),"030b")+format(int(ttlStates),"012b")+format(int(dataField),"020b")+format(PulseBlaster.opcodeDict[opcode],"004b")+format(int(delayCounter),"032b") 
         self.instruction_list.append(instructionString)
         self.num_instructions += 1 
 
 
     def print_program(self):
+        """Prints out all instructions in the current program."""
         i = 0
         for instruction in self.instruction_list:
             phaseHopFlag = bool(int(instruction[0]))
@@ -68,25 +94,46 @@ class PulseBlaster(Source):
             freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)*16
             ttlOuts = instruction[60:72]
             data = int(instruction[72:92],2)
-            opcode = int(instruction[92:96])
-            opcode = next((k for k, v in PulseBlaster.opcodeDict.items() if v == opcode), None)
+            opcode = int(instruction[92:96],2)
+            for key in self.opcodeDict.keys():
+                if self.opcodeDict[key] == opcode:
+                    opcode = key
             delay = int(instruction[96:128],2)
             print(f"Instruction {i}: phase hop flag = {phaseHopFlag}, resync = {resyncFlag}, phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}, opcode = {opcode}, delay = {delay} clock cycles\n")
             i += 1
 
     def clean_program(self):
+        """Removes all instructions from the current program."""
         self.dirty = True
         self.instruction_list = []
 
+    def save_program(self,filename: str):
+        """
+        Save program to a text file in the current working directory which can later be reloaded using load_program.
 
-    def trigger(self):
-        print("PulseBlaster.trigger() is not currently implimented")
+        :param filename: Name of the file to save the program in. Include file extension in filename
+        :type filename: string
+        """
+        #workingDirectory=os.getcwd()
+        fileHandler = open(filename,"w")
+        for entry in self.instruction_list:
+            fileHandler.write(entry+"\n")
+        fileHandler.close()
 
-    def run(self):
-        print("PulseBlaster.run() is not currently implimented")
+    def load_program(self, filename: str):
+        """
+        Load a program from a textfile of the name "programName", make sure to include file extention.
 
-    def reset(self):
-        print("PulseBlaster.reset() is not currently implimented")
+        :param filename: Name of the file containing the program. Include file extension in filename
+        :type filename: string
+        """
+        try:
+            fileHandler = open(filename,"r")
+        except FileNotFoundError:
+            print(f"load_program was unable to find {filename}")
+            return -1
+        programList = fileHandler.readlines()
+        self.instruction_list = programList
 
     def update(self):
         bytes_array = bytearray()
@@ -96,7 +143,7 @@ class PulseBlaster(Source):
                 #print(i)
                 bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
         
-        return bytes_array, "api/pulseblaster"
+        return bytes_array, "api/pulseblaster/instructions"
 
     def __str__(self):
         output = ""

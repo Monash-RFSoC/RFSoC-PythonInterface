@@ -8,6 +8,7 @@ __pycache__/
 
 ./main.py
 main.py
+testing_files/
 
 # Distribution / packaging
 .Python

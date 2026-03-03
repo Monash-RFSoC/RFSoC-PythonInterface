@@ -96,6 +96,7 @@ class RFBuilder(ABC):
         
         # Custom updates for blocks that require it
         for block in update_queue:
+            time.sleep(0.5)
             data, endpoint = block.update()
             #print(data)
             send_http_data(data, endpoint, self.ip, self.port)
@@ -128,7 +129,7 @@ class RFBuilder(ABC):
                 
                 
         return adcs
-
+    
     def __str__(self):
         output = ""
         
