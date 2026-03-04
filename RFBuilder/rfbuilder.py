@@ -1,4 +1,6 @@
 from abc import ABC
+from enum import Enum
+
 import time
 from .boards.boards import Board
 from .blocks.base import RFBlock
@@ -6,6 +8,10 @@ from .blocks.sinks.dac import DAC
 from .blocks.sources.adc import ADC
 
 from .networking import send_http_data
+
+class Clock_Config(Enum):
+    Ext_Ref = "ext_ref"
+    Int_Ref = "int_ref"
 
 class RFBuilder(ABC):
     def __init__(self, board: Board, ip: str, port: int):
@@ -35,7 +41,7 @@ class RFBuilder(ABC):
                 raise KeyError("Attempted to add duplicate block to system")
 
         self.blocks.append(block)
-        block.register_block()
+        block.register_block(self.ip, self.port)
 
     def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:
@@ -90,11 +96,20 @@ class RFBuilder(ABC):
         
         # Custom updates for blocks that require it
         for block in update_queue:
+            time.sleep(0.5)
             data, endpoint = block.update()
             #print(data)
             send_http_data(data, endpoint, self.ip, self.port)
 
         return system
+    
+    def configure_clock(self, ref: Clock_Config):
+        if ref == Clock_Config.Ext_Ref:
+            pass
+        elif ref == Clock_Config.Int_Ref:
+            pass
+        else:
+            raise ValueError("Unkown Clock Reference provided, must be either Ext_Ref or Int_Ref")
 
     def get_dacs(self):
         dacs = []
@@ -114,7 +129,7 @@ class RFBuilder(ABC):
                 
                 
         return adcs
-
+    
     def __str__(self):
         output = ""
         

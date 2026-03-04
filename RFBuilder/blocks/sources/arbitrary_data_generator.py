@@ -16,7 +16,7 @@ class ArbitraryDataGenerator(Source):
     def __init__(self, data: list):
         self.waveform: list = data
         
-        super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)])
+        super().__init__("ddr4", [Port(PortDirection.OUTPUT, 0)],{})
     
         self.custom_update = True
 

@@ -57,6 +57,13 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
 
     # Process the response
     if response.status_code == 200:
+        content = response.content
+        exp_len = int(response.headers.get('Content-Length', len(content)))
+
+        print(f"Expected response length: {exp_len}, Actual response length: {len(content)}")
+        
+        return content
+
         if isinstance(data, dict):
             try:
                 return response.json()
@@ -65,4 +72,5 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 return {"error": "Invalid JSON response"}
     else:
         print(f"Error: {response.status_code}")
+        
         return {"error": response.status_code}
