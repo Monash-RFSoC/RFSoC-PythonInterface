@@ -137,12 +137,16 @@ class PulseBlaster(Source):
 
     def update(self):
         bytes_array = bytearray()
+        stopPresent = 0
         for instruction in self.instruction_list:
             #instruction = instruction[::-1]
+            if(int(instruction[92:96],2) == PulseBlaster.opcodeDict["STOP"]):
+                stopPresent = 1
             for i in range(int(PulseBlaster.instructionLength/8)-1,-1,-1): 
                 #print(i)
                 bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
-        
+        if(stopPresent == 0):
+            raise ValueError("PulseBlaster program must contain a stop command")
         return bytes_array, "api/pulseblaster/instructions"
 
     def __str__(self):
