@@ -1,4 +1,3 @@
-
 from RFBuilder import RFBuilder, RFSOC4x2, ArbitraryWaveformGenerator, WaveType, PulseBlaster, Mixer
 
 board = RFSOC4x2()
