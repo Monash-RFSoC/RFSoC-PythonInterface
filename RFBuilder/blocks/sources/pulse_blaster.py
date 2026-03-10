@@ -25,7 +25,7 @@ class PulseBlaster(Source):
     _ttlLen=12
     _opcodeLen = 4
     _delayLen = 32
-    _dataLen = 20
+    _dataLen = 20 #git test
 
     _phasehopSB = _instructionLength - (_phasehopLen+_resyncLen+_ampLen+_phaseLen+_freqLen+_ttlLen+_opcodeLen+_delayLen+_dataLen)
     _resyncSB = _phasehopSB + _phasehopLen
