@@ -19,7 +19,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
     session = requests.Session()
     
     # Set longer timeouts to handle slow responses
-    timeout = (10, 30)  # (connect timeout, read timeout)
+    timeout = (10, 1600)  # (connect timeout, read timeout)
     
     try:
         options_response = session.options(url, timeout=timeout)
