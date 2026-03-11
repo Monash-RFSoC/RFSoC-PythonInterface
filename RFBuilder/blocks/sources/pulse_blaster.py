@@ -25,7 +25,7 @@ class PulseBlaster(Source):
     _ttlLen=12
     _opcodeLen = 4
     _delayLen = 32
-    _dataLen = 20 #git test
+    _dataLen = 20 
 
     _phasehopSB = _instructionLength - (_phasehopLen+_resyncLen+_ampLen+_phaseLen+_freqLen+_ttlLen+_opcodeLen+_delayLen+_dataLen)
     _resyncSB = _phasehopSB + _phasehopLen
@@ -36,6 +36,8 @@ class PulseBlaster(Source):
     _dataSB = _ttlSB + _ttlLen
     _opcodeSB = _dataSB + _dataLen
     _delaySB = _opcodeSB + _opcodeLen
+
+    _addrBits = 17 #TODO: have a check to confirm if more then the max possible instructions are written
     
     freqRes = _Fclk*16/(2**_freqLen) #frequency resolution in MHz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**_phaseLen) #phase offset resolution in degrees
@@ -221,5 +223,96 @@ class PulseBlaster(Source):
         for port in self.ports:
             output += f"\t\t{str(port)}\n"
         return output
-
     
+    def generate_coe(self,filename, awidth, offset = 0, mask = False, ctrl = False, include_end_command = True):
+        if(offset%4 != 0): #leaving this in for now since this is true for the AXI traffic generator, this doens't need to hold for DRAM but DRAM only needs the data file not the address file so it doesn't matter anyway
+            raise ValueError("Input variable 'offset' must be an integer mutliple of 4")
+        if(awidth < 0):
+            raise Exception(f"awidth value must be greater than 0")
+        workingDirectory=os.getcwd()
+        addressFile=open(os.path.join(workingDirectory+filename+"address.coe"),"w")
+        dataFile=open(os.path.join(workingDirectory+filename+"data.coe"),"w")
+        addressFile.write("memory_initialization_radix = 2;\n memory_initialization_vector = \n")
+        dataFile.write("memory_initialization_radix = 2;\n memory_initialization_vector = \n")
+        
+        addrNum = offset
+        for instr in self.instruction_list:
+            for i in range(PulseBlaster._instructionLength/32): #this converts each instruction into 32 bit chunks
+                flippedData = instr[::-1]
+                scaledData = flippedData[i*32:(i+1)*32]
+                scaledData = scaledData[::-1] #flip back
+                dataFile.write(f"{scaledData}\n") #have to start from the end of the list since it is the lsb
+                addressFile.write(format(addrNum,f"0{awidth}b"))
+                addrNum += 4 #move 4 bytes over in memory
+
+    def generate_testbench_file(self,filename):
+        addressPointer=0
+        workingDirectory = os.getcwd()
+        opcode=self.instruction_list[0][PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]   
+        unwrappedFile = open(os.path.join(workingDirectory,filename),"w")
+        unwrappedFile.write("1,1,0000000000000000,000000000000000000000000000000,000000000000000000000000000000,000000000000,0\n") #0 pad the start based on reset states
+        loopStack = [[(2**self._addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
+        loopPointer = 0
+        rtsAddress = 0
+        counter = 0
+        while (addressPointer < len(self.instruction_list)):
+            currentInstruction = self.instruction_list[addressPointer]
+            opcode = currentInstruction[PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]
+            opcode = int(opcode,2)
+            delayCounter = int(currentInstruction[self._delaySB : self._delaySB+self._delayLen],2)
+            waitFlag=0
+
+            if(opcode == self._opcodeDict["CONT"]):
+                addressPointer += 1
+            elif (opcode == self._opcodeDict["STOP"]):
+                addressPointer = len(self.instruction_list)
+            elif (opcode == self._opcodeDict["LOOP"]):
+                if(addressPointer != loopStack[loopPointer][0]):
+                    if(loopStack[loopPointer][0] == 2**self._addrBits-1):
+                        loopStack[loopPointer][0] = addressPointer
+                        loopStack[loopPointer][1] = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)
+                    else:
+                        loopPointer += 1
+                        loopStack.append([addressPointer,int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)])
+                addressPointer += 1
+            elif (opcode == self._opcodeDict["END_LOOP"]):
+                loopStack[loopPointer][1] -= 1
+                if(loopStack[loopPointer][1] == 0):
+                    addressPointer +=1
+                    if(len(loopStack)>1):
+                        loopStack.pop(-1) #remove that entry from the loopStack
+                        loopPointer -= 1
+                    else:
+                        loopStack = [[2**self._addrBits-1,0]]
+                        loopPointer = 0
+                else:
+                    addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the loop address in the data field
+            elif (opcode == self._opcodeDict["JSR"]):
+                rtsAddress = addressPointer+1
+                addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the subroutine address in the data field
+            elif (opcode == self._opcodeDict["RTS"]):
+                addressPointer = rtsAddress
+            elif (opcode == self._opcodeDict["BRANCH"]):
+                addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the branch address in the data field
+            elif (opcode == self._opcodeDict["LONG_DELAY"]):
+                addressPointer += 1 #here there is just a longer delay which the tb currently doesn't check since it is an internal param
+                delayCounter = delayCounter * int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)
+            elif (opcode == self._opcodeDict["WAIT"]):
+                addressPointer += 1 #since this is just getting the expected output of the instructions no need to do anything apart from incriment counter
+                waitFlag = 1
+            else:
+                raise ValueError(f"The instruction at address {addressPointer} does not contain a valid opcode: {opcode}")
+
+            ampOutput = currentInstruction[self._ampSB : self._ampSB+self._ampLen]
+            resyncFlag = currentInstruction[self._resyncSB : self._resyncSB+self._resyncLen]
+            phasehopFlag = currentInstruction[self._phasehopSB : self._phasehopSB+self._phasehopLen]
+            phaseOutput = currentInstruction[self._phaseSB : self._phaseSB+self._phaseLen]
+            freqOutput = currentInstruction[self._freqSB : self._freqSB+self._freqLen] #account for downscaling from PulseBlaster
+            ttlOutput = currentInstruction[self._ttlSB : self._ttlSB+self._ttlLen]
+            print(delayCounter)
+            if(waitFlag == 0):
+                for i in range((delayCounter+1)): #plus 1 because for a delay of 5 it should count from 0 up to 5 before wrapping around, divide by 2 since the input is ns not clock cycles
+                    unwrappedFile.write(f"{phasehopFlag},{resyncFlag},{ampOutput},{phaseOutput},{freqOutput},{ttlOutput},{waitFlag}\n")
+            else:
+                unwrappedFile.write(f"{phasehopFlag},{resyncFlag},{ampOutput},{phaseOutput},{freqOutput},{ttlOutput},{waitFlag}\n")
+        unwrappedFile.close()
