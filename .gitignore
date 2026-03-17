@@ -9,6 +9,7 @@ __pycache__/
 ./main.py
 main.py
 testing_files/
+scratchpad.py
 
 # Distribution / packaging
 .Python
