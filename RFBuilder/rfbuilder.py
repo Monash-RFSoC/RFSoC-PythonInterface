@@ -1,7 +1,7 @@
 from abc import ABC
 from enum import Enum
 
-import time
+from RFBuilder.control import ControlManager, ControlPin
 from .boards.boards import Board
 from .blocks.base import RFBlock
 from .blocks.sinks.dac import DAC
@@ -33,6 +33,9 @@ class RFBuilder(ABC):
         for adc in self.board.get_adcs():
             block = ADC(adc["name"], adc["id"])
             self.register_block(block)
+
+        # TTL Control pin setup
+        self.ttl = ControlManager(self.board, self)
 
 
     def register_block(self, block: RFBlock):
@@ -84,24 +87,46 @@ class RFBuilder(ABC):
         if self.connections_dirty:
             system["connections"] = self.connections
 
-        request = {
-            "request-type" : "build_system",
-            "system" : system
-        }
+        if self.ttl.dirty:
+            self.ttl.dirty = False
+            connection_packet = []
+            operations_packet = []
 
-        # Default system update
-        send_http_data(request, "api/system", self.ip, self.port)
+            for connection in self.ttl.connections:
+                connection_packet.append([connection[0].id, connection[1].id])
 
-        # time.sleep(0.25) # Wait for the system to update before sending custom updates
-        
+            for operation in self.ttl.operations:
+                operations_packet.append([operation[0].id, operation[1]])
+
+            system["ttl"] = {
+                "connections": connection_packet,
+                "operations": operations_packet
+            }
+
+        if (system != {"blocks": []}):
+            ## If there are updates to send, construct the data object to send
+            request = {
+                "request-type" : "build_system",
+                "system" : system
+            }
+
+            # Default system update
+            self.transmit_to_board(request, "api/system")
+
+        else:
+            ## No system updates to send, jump to custom updates
+            pass
+
         # Custom updates for blocks that require it
         for block in update_queue:
-            time.sleep(0.5)
             data, endpoint = block.update()
-            #print(data)
-            send_http_data(data, endpoint, self.ip, self.port)
+            self.transmit_to_board(data, endpoint)
 
         return system
+    
+    def transmit_to_board(self, data: dict, endpoint: str):
+        ## TODO: Probably some checks on the data or something :/
+        send_http_data(data, endpoint, self.ip, self.port)
     
     def configure_clock(self, ref: Clock_Config):
         if ref == Clock_Config.Ext_Ref:
@@ -110,7 +135,7 @@ class RFBuilder(ABC):
             pass
         else:
             raise ValueError("Unkown Clock Reference provided, must be either Ext_Ref or Int_Ref")
-
+    
     def get_dacs(self):
         dacs = []
         
@@ -129,7 +154,7 @@ class RFBuilder(ABC):
                 
                 
         return adcs
-    
+
     def __str__(self):
         output = ""
         
@@ -147,4 +172,8 @@ class RFBuilder(ABC):
         for block in self.blocks:
             output += f"\t{str(block)}"
 
+        output += "\n──────────────────────────────────────────────────────────────────\n\n"
+        
+        output += self.ttl.connections.__str__()
+        
         return output

@@ -215,7 +215,7 @@ class PulseBlaster(Source):
                 bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
         if(stopPresent == 0):
             raise ValueError("PulseBlaster program must contain a stop command")
-        return bytes_array, "api/pulseblaster/instructions"
+        return bytes_array, "api/pulseblaster"
 
     def __str__(self):
         output = ""

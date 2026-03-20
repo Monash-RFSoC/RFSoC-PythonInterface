@@ -1,3 +1,5 @@
+from anaconda_cli_base import console
+
 from ..base import Sink
 from ..port import Port, PortDirection
 from ...networking import send_http_data
@@ -23,18 +25,29 @@ class DataLogger(Sink):
         return super().register_block()
 
 
-    def read(self) -> tuple[np.ndarray, np.ndarray]:
+    def read(self, num_samples: int = (1024 * 1024) / 4, num_seconds: float = None) -> tuple[np.ndarray, np.ndarray]:
         if self.registered == False:
             raise ModuleNotFoundError(f"The {self} module has not been registered with an RFBuilder system.")
         
-        SAMPLE_RATE = 5e12
+        SAMPLE_RATE = 8_000_000_000
         time_step = 1 / SAMPLE_RATE
 
-        content_bytes = send_http_data(bytearray([0x01]), "api/datalogger", self.ip, self.port)
+        if num_seconds is not None:
+            num_samples = int(num_seconds * SAMPLE_RATE)
+
+        if num_samples > (1024 * 1024) / 2:
+            print(f"Warning: Data logger is only {1024 * 1024 / 2} samples deep. Requested: {num_samples} samples.")
+            num_samples = int(1024 * 1024 / 2)
+
+        num_samples = int(num_samples)
+        num_samples_bytes = bytearray(num_samples.to_bytes(4, byteorder='big'))
+        content_bytes = send_http_data(bytearray([0x01] + list(num_samples_bytes)), "api/datalogger", self.ip, self.port)
         content_samples = int(len(content_bytes) / 2)
         content_array = np.frombuffer(content_bytes, dtype=np.int16, count=content_samples)
 
         time_array = np.arange(0, content_samples * time_step, time_step)
+        if len(time_array) > content_samples:
+            time_array = time_array[:content_samples]
 
         return content_array, time_array
 
