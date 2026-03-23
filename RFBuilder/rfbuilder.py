@@ -31,11 +31,11 @@ class RFBuilder(ABC):
         # Register all available DACs
         for dac in self.board.get_dacs():
             block = DAC(dac["name"], dac["id"])
-            self.register_block(block)
+            self.add(block)
 
         for adc in self.board.get_adcs():
             block = ADC(adc["name"], adc["id"])
-            self.register_block(block)
+            self.add(block)
 
 
     def add(self, block: RFBlock):

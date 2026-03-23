@@ -19,12 +19,12 @@ pb.add_instruction(0, 0, 0, 0, 500, 1, 0, "CONT", 500_000_000)
 pb.add_instruction(0, 0, 0, 0, 500, 0, 0, "BRANCH", 4)
 pb.add_instruction(0, 0, 0, 0, 500, 0, 0, "STOP", 4)
 
-rf_builder.register_block(pb)
-rf_builder.register_connection(pb, dacs[0]) # Connect PB to DAC_A
+rf_builder.add(pb)
+rf_builder.connect(pb, dacs[0]) # Connect PB to DAC_A
 
 logger = DataLogger()
-rf_builder.register_block(logger)
-rf_builder.register_connection(adcs[1], logger)
+rf_builder.add(logger)
+rf_builder.connect(adcs[1], logger)
 
 rf_builder.ttl.reset() # Clears the preset TTL connections AND aliases
 
