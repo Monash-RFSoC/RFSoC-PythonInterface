@@ -15,6 +15,10 @@ class Board(ABC):
         assert NotImplementedError
 
     @abstractmethod
+    def get_ttl_pins(self):
+        assert NotImplementedError
+
+    @abstractmethod
     def __str__(self):
         assert NotImplementedError
 

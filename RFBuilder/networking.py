@@ -1,3 +1,4 @@
+import json
 import time
 import requests
 
@@ -32,7 +33,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'Accept': '*/*',
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
-            print(f"Sending JSON data to {url} with headers {headers}")
+            # print(f"Sending JSON data to {url} with headers {headers}")
             response = session.post(url, json=data, headers=headers, timeout=timeout)
         else:
             headers = {
@@ -42,11 +43,11 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
 
-            print(f"Sending {len(data)} bytes to {url} with headers {headers}")
+            # print(f"Sending {len(data)} bytes to {url}")
             start_time = time.time()
             response = session.post(url, data=data, headers=headers, timeout=timeout)
             end_time = time.time()
-            print(f"Link Speed : {len(data) / (end_time - start_time) / 1e6:.2f} MB/s")
+            # print(f"Link Speed : {len(data) / (end_time - start_time) / 1e6:.2f} MB/s")
 
     except requests.Timeout:
         print("Request timed out")
@@ -60,17 +61,14 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
         content = response.content
         exp_len = int(response.headers.get('Content-Length', len(content)))
 
-        print(f"Expected response length: {exp_len}, Actual response length: {len(content)}")
+        # print(f"Expected response length: {exp_len}, Actual response length: {len(content)}")
         
         return content
-
-        if isinstance(data, dict):
-            try:
-                return response.json()
-            except ValueError:
-                print("Response is not valid JSON")
-                return {"error": "Invalid JSON response"}
     else:
         print(f"Error: {response.status_code}")
+        response_json = response.json()
+        print(f"Response Content:")
+        print(f"  Status: {response_json["status"]}")
+        print(f"  Error: {response_json["error"]}")
         
         return {"error": response.status_code}
