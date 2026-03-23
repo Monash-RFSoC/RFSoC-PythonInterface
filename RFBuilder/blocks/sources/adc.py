@@ -4,7 +4,7 @@ from ..port import Port, PortDirection
 class ADC(Source):
     def __init__(self, tile: str, id: int):
         ports = [Port(PortDirection.OUTPUT, id)]
-        super().__init__(tile, ports,{})
+        super().__init__(tile, ports)
 
     def __str__(self):
         output = ""

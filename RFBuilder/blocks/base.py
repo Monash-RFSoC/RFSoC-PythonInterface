@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
+
+from RFBuilder.control import ControlManager, ControlPin
 from .port import Port
 from ..networking import send_http_data
-HIGH = 0x03
-LOW = 0x02
-PULSE = 0x01
 
 class RFBlock(ABC):
-    def __init__(self, name: str, ports: list[Port], pins: dict[str:int]) -> None:
+    def __init__(self, name: str, ports: list[Port]) -> None:
         self.name = name
         self.ports = ports
         self.attributes = {}
@@ -15,7 +14,7 @@ class RFBlock(ABC):
         self.custom_update = False
         self.ip = None
         self.port = None
-        self.pins = pins
+        self.pins = []
 
     def to_dict(self):
         block = {
@@ -34,37 +33,11 @@ class RFBlock(ABC):
 
         return output_ports
     
-    def get_pins(self) -> dict:
-        print("Values assosiated with key indicate current pin state")
-        print(self.pins)
+    def ttl(self) -> list[ControlPin]:
         return self.pins
-        
-    def set_pin(self, pin: str, state: int) -> int:
-        if(pin not in self.pins.keys()):
-            print(f"Could not find {pin} in pin list for this ip block")
-            return ValueError
-        endpoint = "api/"+self.name+"/"+pin
-        
-        if(state == 0):
-            send_http_data(bytearray([LOW]), endpoint, self.ip, self.port)
-            self.pins[pin] = 0
-        else:
-            send_http_data(bytearray([HIGH]), endpoint, self.ip, self.port)
-            self.pins[pin] = 1
 
-        return 0 #TODO: have it return weather or not the request was sucsessful
     
-    def pulse_pin(self, pin) -> int:
-        if(pin not in self.pins.keys()):
-            print(f"Could not find {pin} in pin list for this ip block")
-            return ValueError
-        endpoint = "api/"+self.name+"/"+pin
-        send_http_data(bytearray([PULSE]), endpoint, self.ip, self.port)
-        
-        return 0 #TODO: have it return weather or not the request was sucsessful
-        
-    
-    def register_block(self, ip: str = "", port: int = 0):
+    def register_block(self, ip: str = "", port: int = 0, index: int = 0, ttl: ControlManager = None):
         self.registered = True
         #self.ip = ip
         #self.port = port
@@ -75,22 +48,22 @@ class RFBlock(ABC):
 
 
 class Sink(RFBlock):
-    def __init__(self, name: str, ports: list[Port], pins: dict):
+    def __init__(self, name: str, ports: list[Port]):
         # TODO: Check that all ports are inputs
 
-        super().__init__(name, ports, pins)
+        super().__init__(name, ports)
     pass
 
 
 class Source(RFBlock):
-    def __init__(self, name: str, ports: list[Port], pins: dict):
+    def __init__(self, name: str, ports: list[Port]):
         # TODO: Check that all ports are outputs
         
-        super().__init__(name, ports, pins)
+        super().__init__(name, ports)
     pass
 
 
 class Processor(RFBlock):
-    def __init__(self, name: str, ports: list[Port], pins: dict):
+    def __init__(self, name: str, ports: list[Port]):
 
-        super().__init__(name, ports, pins)
+        super().__init__(name, ports)

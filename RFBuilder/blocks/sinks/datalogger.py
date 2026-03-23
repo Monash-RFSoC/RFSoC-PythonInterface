@@ -1,5 +1,7 @@
 from anaconda_cli_base import console
 
+from RFBuilder.control import ControlManager
+
 from ..base import Sink
 from ..port import Port, PortDirection
 from ...networking import send_http_data
@@ -13,12 +15,9 @@ class DataLogger(Sink):
     def __init__(self):
         ports = [Port(PortDirection.INPUT, 4)]
 
-        #self.ip = None
-        #self.port = None
+        super().__init__("logger", ports)
 
-        super().__init__("logger", ports,{})
-
-    def register_block(self, ip: str = "", port: int = 0):
+    def register_block(self, ip: str = "", port: int = 0, index: int = 0, ttl: ControlManager = None):
         self.ip = ip
         self.port = port
 

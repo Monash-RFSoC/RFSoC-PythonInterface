@@ -24,6 +24,9 @@ class RFBuilder(ABC):
         # RFBuilder Networking Information
         self.ip = ip
         self.port = port
+
+        # TTL Control pin setup
+        self.ttl = ControlManager(self.board, self)
         
         # Register all available DACs
         for dac in self.board.get_dacs():
@@ -34,17 +37,14 @@ class RFBuilder(ABC):
             block = ADC(adc["name"], adc["id"])
             self.register_block(block)
 
-        # TTL Control pin setup
-        self.ttl = ControlManager(self.board, self)
-
 
     def register_block(self, block: RFBlock):
-        for i in self.blocks:
-            if i.name == block.name:
-                raise KeyError("Attempted to add duplicate block to system")
+        ## TODO: Add a dictionary to each board file that specifies how many of each block are available.
+
+        same_blocks = [b for b in self.blocks if block.name in b.name]
 
         self.blocks.append(block)
-        block.register_block(self.ip, self.port)
+        block.register_block(self.ip, self.port, len(same_blocks), self.ttl)
 
     def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:

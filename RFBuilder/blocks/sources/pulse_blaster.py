@@ -1,3 +1,5 @@
+from RFBuilder.control import ControlManager
+
 from ..base import Source
 from ..port import Port, PortDirection
 from ...networking import send_http_data
@@ -44,17 +46,20 @@ class PulseBlaster(Source):
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
-        pins = {"run":0,
-                "trigger":0,
-                "resetn":1,
-                     }
         
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)],pins)
+        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
         self.custom_update = True
 
-    def register_block(self, ip: str = "", port: int = 0):
+    def register_block(self, ip: str = "", port: int = 0, index: int = 0,ttl: ControlManager = None):
         self.ip = ip
         self.port = port
+
+        self.pins = ttl.pins.pulseblaster
+
+        ttl.connect(ttl.pins.reserved[0], "PB_RUN") # Connect the "PULSE ON BOOT" pin to PB_RUN
+        ttl.connect(ttl.pins.reserved[2], "PB_RSTN") # Connect the "HIGH" pin to PB_RSTN for always off
+        ttl.connect(["KEY0", "SOFTWARE0"], "PB_TRIG")
+
 
         return super().register_block()
     

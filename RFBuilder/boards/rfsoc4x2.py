@@ -47,7 +47,7 @@ class RFSOC4x2(Board):
                 ControlPin("SOFTWARE2", 6, ControlPin.INPUT, software_controlled=True),
                 ControlPin("SOFTWARE3", 7, ControlPin.INPUT, software_controlled=True),
             ],
-            "PULSE_BLASTER": [
+            "pulseblaster": [
                 ControlPin("PB_FLAG0", 12, ControlPin.INPUT),
                 ControlPin("PB_FLAG1", 13, ControlPin.INPUT),
                 ControlPin("PB_FLAG2", 14, ControlPin.INPUT),
@@ -82,8 +82,13 @@ class RFSOC4x2(Board):
                 ControlPin("LOOPBACK_OUT1", 28, ControlPin.OUTPUT),
                 ControlPin("LOOPBACK_OUT2", 29, ControlPin.OUTPUT),
                 ControlPin("LOOPBACK_OUT3", 30, ControlPin.OUTPUT)
-            ]
-
+            ],
+            "reserved": [
+                ControlPin("[PULSE ON BOOT]", -1, ControlPin.INPUT),
+                ControlPin("[LOW]", -2, ControlPin.INPUT),
+                ControlPin("[HIGH]", -3, ControlPin.INPUT)
+            ],
+            
         })
 
         return ttl_pins
