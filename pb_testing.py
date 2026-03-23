@@ -34,7 +34,7 @@ rf_builder.ttl.connect(["KEY0", "SOFTWARE0"], trig)
 rf_builder.ttl.connect("SOFTWARE1", "PB_RSTN")
 rf_builder.ttl.connect("SOFTWARE2", "PB_RUN")
 
-rf_builder.ttl.connect("PB_FLAG0", "SYZYGY_OUT0")
+rf_builder.ttl.connect("PB_FLAG0", ["SYZYGY_OUT0", "LED1"])
 
 print(rf_builder.ttl.connections)
 

@@ -38,7 +38,7 @@ class RFBuilder(ABC):
             self.register_block(block)
 
 
-    def register_block(self, block: RFBlock):
+    def add(self, block: RFBlock):
         ## TODO: Add a dictionary to each board file that specifies how many of each block are available.
 
         same_blocks = [b for b in self.blocks if block.name in b.name]
@@ -46,7 +46,7 @@ class RFBuilder(ABC):
         self.blocks.append(block)
         block.register_block(self.ip, self.port, len(same_blocks), self.ttl)
 
-    def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
+    def connect(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:
             raise ModuleNotFoundError(f"The {source_block} module has not been registered with an RFBuilder system.")
         
