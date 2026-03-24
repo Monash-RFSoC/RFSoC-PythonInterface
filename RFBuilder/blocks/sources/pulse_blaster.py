@@ -263,7 +263,7 @@ class PulseBlaster(Source):
         addressPointer=0
         workingDirectory = os.getcwd()
         opcode=self.instruction_list[0][PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]   
-        unwrappedFile = open(os.path.join(workingDirectory,filename),"w")
+        unwrappedFile = open(os.path.join(workingDirectory+filename),"w")
         unwrappedFile.write("1,1,0000000000000000,000000000000000000000000000000,000000000000000000000000000000,000000000000,0\n") #0 pad the start based on reset states
         loopStack = [[(2**self._addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
         loopPointer = 0
