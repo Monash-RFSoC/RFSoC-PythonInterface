@@ -33,7 +33,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'Accept': '*/*',
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
-            # print(f"Sending JSON data to {url} with headers {headers}")
+            print(f"Sending JSON data to {url}")
             response = session.post(url, json=data, headers=headers, timeout=timeout)
         else:
             headers = {
@@ -43,7 +43,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
 
-            # print(f"Sending {len(data)} bytes to {url}")
+            print(f"Sending {len(data)} bytes to {url}")
             start_time = time.time()
             response = session.post(url, data=data, headers=headers, timeout=timeout)
             end_time = time.time()
