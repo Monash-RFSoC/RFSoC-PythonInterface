@@ -15,13 +15,13 @@ dacs = rf_builder.get_dacs()
 pb = PulseBlaster()
 
 pb.add_instruction(0, 0, 2**16 - 1, 0, 2000, 0, 0, "CONT", 100)
-pb.add_instruction(0, 0, 2**16 - 1, 0, 300, 0, 0, "CONT", 100)
-#pb.add_instruction(0, 0, 0, 0, 500, 0, 0, "BRANCH", 4)
+# pb.add_instruction(0, 0, 2**16 - 1, 0, 300, 0, 0, "CONT", 100)
+pb.add_instruction(0, 0, 2**16 - 1, 0, 2000, 0, 0, "BRANCH", 4)
 pb.add_instruction(0, 1, 0, 0, 0, 0, 0, "STOP", 4)
 
 
-rf_builder.register_block(pb)
-rf_builder.register_connection(pb, dacs[0]) # Connect PB to DAC_A
+rf_builder.add(pb)
+rf_builder.connect(pb, dacs[0]) # Connect PB to DAC_A
 
 #logger = DataLogger()
 #rf_builder.register_block(logger)
@@ -30,6 +30,7 @@ rf_builder.register_connection(pb, dacs[0]) # Connect PB to DAC_A
 rf_builder.ttl.reset() # Clears the preset TTL connections AND aliases
 
 trig = ["PB_TRIG", "DIGITIZER_TRIG0", "LED0"]
+rf_builder.ttl.update_state("SOFTWARE1", 0)
 
 rf_builder.ttl.connect(["KEY0", "SOFTWARE0"], trig)
 rf_builder.ttl.connect("SOFTWARE1", "PB_RSTN")

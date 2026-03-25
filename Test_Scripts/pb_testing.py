@@ -1,8 +1,14 @@
 import time
 
-from RFBuilder import *
+import sys
+
+sys.path.append("..")
+
+
+from RFBuilder import * 
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 
 board = RFSOC4x2()

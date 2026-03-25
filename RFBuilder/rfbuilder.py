@@ -1,5 +1,6 @@
 from abc import ABC
 from enum import Enum
+import time
 
 from RFBuilder.control import ControlManager, ControlPin
 from .boards.boards import Board
@@ -117,6 +118,7 @@ class RFBuilder(ABC):
             ## No system updates to send, jump to custom updates
             pass
 
+        time.sleep(0.2)
         # Custom updates for blocks that require it
         for block in update_queue:
             data, endpoint = block.update()

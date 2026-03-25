@@ -34,6 +34,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
             print(f"Sending JSON data to {url}")
+            print(f"Data: {json.dumps(data)}")
             response = session.post(url, json=data, headers=headers, timeout=timeout)
         else:
             headers = {

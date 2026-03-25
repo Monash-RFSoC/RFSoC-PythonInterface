@@ -159,9 +159,9 @@ class ControlManager(ABC):
 
     def reset(self):
         self.dirty = True
-        self.connections.clear()
-        self.operations.clear()
-        self.aliases.clear()
+        self.operations: list[tuple[ControlPin, int]] = []
+        self.connections: PinConnections = PinConnections(self.operations)
+        self.aliases = {}
 
     def update_state(self, pin: ControlPin | str, state: 0 | 1 | 2):
         if isinstance(pin, str):
