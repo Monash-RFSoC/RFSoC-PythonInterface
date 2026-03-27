@@ -69,7 +69,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
         print(f"Error: {response.status_code}")
         response_json = response.json()
         print(f"Response Content:")
-        print(f"  Status: {response_json["status"]}")
-        print(f"  Error: {response_json["error"]}")
+        print(f"  Status: {response_json['status']}")
+        print(f"  Error: {response_json['error']}")
         
         return {"error": response.status_code}

@@ -21,7 +21,8 @@ class RFBuilder(ABC):
         self.blocks : list[RFBlock] = [] 
         self.connections : list[tuple[int, int]] = []
         self.connections_dirty : bool = False
-        
+        self.sinc_filters : int = 0
+
         # RFBuilder Networking Information
         self.ip = ip
         self.port = port
@@ -104,6 +105,8 @@ class RFBuilder(ABC):
                 "operations": operations_packet
             }
 
+        system["sinc_filter"] = self.sinc_filters
+
         if (system != {"blocks": []}):
             ## If there are updates to send, construct the data object to send
             request = {
@@ -156,6 +159,10 @@ class RFBuilder(ABC):
                 
                 
         return adcs
+
+    def set_sinc_filters(self, status: int):
+        self.sinc_filters = status
+        self.dirty = True
 
     def __str__(self):
         output = ""

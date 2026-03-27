@@ -118,7 +118,7 @@ class ArbitraryWaveformGenerator(Source):
 
         # _array = _array + 1  # Shift to be all positive for uint16
         _array = ((_array) * self.amplitude).astype(np.int16)
-
+    
         return _array.tolist(), numBytes
         
 
