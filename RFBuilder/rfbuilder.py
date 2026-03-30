@@ -48,6 +48,19 @@ class RFBuilder(ABC):
         self.blocks.append(block)
         block.register_block(self.ip, self.port, len(same_blocks), self.ttl)
 
+    def is_dirty(self):
+        if self.connections_dirty:
+            return True
+
+        for block in self.blocks:
+            if block.dirty:
+                return True
+
+        if self.ttl.dirty:
+            return True
+
+        return False
+    
     def connect(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:
             raise ModuleNotFoundError(f"The {source_block} module has not been registered with an RFBuilder system.")
