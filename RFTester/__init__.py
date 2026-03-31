@@ -1,3 +1,3 @@
-from .rftester import RFTester
+from .pbtester import PBTester
 
-__all__ = ["RFTester"]
+__all__ = ["PBTester"]

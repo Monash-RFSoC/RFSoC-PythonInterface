@@ -15,7 +15,14 @@ class Clock_Config(Enum):
     Int_Ref = "int_ref"
 
 class RFBuilder(ABC):
-    def __init__(self, board: Board, ip: str, port: int):
+    def __init__(self, board: Board, ip: str, port: int = 8080):
+        """ Initialise the RFBuilder instance, with the required ip, port and RFSoC class.
+
+        Args:
+            board (Board): RFSoC Board object. Must by a subclass of the RFBuilder.boards.Board class. Currently only the RFSoc4x2 exists.
+            ip (str): IPv4 address of the RFSoC board, will be displayed on the OLED Screen, in the format "xxx.xxx.xxx.xxx"
+            port (int): Port number for the RFSoC board, default is 8080
+        """
         # RFBuilder information
         self.board = board
         self.blocks : list[RFBlock] = [] 
