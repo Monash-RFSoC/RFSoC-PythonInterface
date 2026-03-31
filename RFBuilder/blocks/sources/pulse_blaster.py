@@ -110,6 +110,9 @@ class PulseBlaster(Source):
         if((0 > ampWord) or ((2**16)-1) < ampWord):
             raise ValueError("ampWord must be in the range of 0 to 65535")
         
+        if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
+            dataField = dataField - 1
+        
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
