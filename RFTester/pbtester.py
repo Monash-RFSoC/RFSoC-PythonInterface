@@ -90,7 +90,10 @@ class PBTester(Base):
         ## At this point, test_data and test_time only contain the information from the start of the user program.
         pulseBlasterOutput = self.simulate()
         sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 64e9)
-    
+        self.compare_waveforms(test_data, test_time, sim_data, sim_time)
+
+        test_amp = np.max(test_data)
+        sim_data = np.array(sim_data) * (test_amp / np.max(sim_data))
 
         print("Pulse blaster output:")
         for step in pulseBlasterOutput:
@@ -100,8 +103,38 @@ class PBTester(Base):
     
 
     def compare_waveforms(self, test_data: np.ndarray, test_time: np.ndarray, sim_data: np.ndarray, sim_time: np.ndarray):
-        ## Compare the simulated waveform to the actual data, this is useful for debugging and for validating the simulator.
-        pass
+        ## Compare the simulated waveform to the actual data
+
+        # Match the amplitude of the two waveforms
+        test_amp = np.max(test_data)
+        sim_data = np.array(sim_data) * (test_amp / np.max(sim_data))
+
+        # find the comparison window
+        sim_filtered = []
+        for t in test_time:
+            idx = np.argmin(np.abs(sim_time - t))
+            sim_filtered.append(sim_data[idx])
+
+        base_mse = np.mean((sim_filtered - test_data) ** 2)
+        print(f"Base MSE: {base_mse}")
+
+        min_mse = base_mse
+        min_shift = 0
+        for time_shift in tqdm.tqdm(np.arange(-10e-9, 10e-9, 500e-12)):
+            # find the comparison window
+            sim_filtered = []
+            for t in test_time:
+                idx = np.argmin(np.abs(sim_time - t - time_shift))
+                sim_filtered.append(sim_data[idx])
+                
+            mse = np.mean((sim_filtered - test_data) ** 2)
+            if mse < min_mse:
+                min_mse = mse
+                min_shift = time_shift
+
+    
+        print(f"Best time shift: {min_shift * 1e9:.2f} ns, MSE: {min_mse}")
+
 
 
     
