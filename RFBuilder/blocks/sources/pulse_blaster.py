@@ -64,7 +64,7 @@ class PulseBlaster(Source):
 
         return super().register_block()
     
-    def add_instruction(self, freqWord: float, phaseWord:float, ttlStates: int, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0):
+    def add_instruction(self, freqWord: float, phaseWord:float, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
         
