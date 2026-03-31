@@ -23,10 +23,7 @@ class PBTester(Base):
 
 
     ## Test function, returns a time and data array.
-    def test(self) -> tuple[np.ndarray, np.ndarray]:
-         # if self.rf_builder.is_dirty():
-        #     print("Warning: RFBuilder has unsaved changes. Please call rf_builder.update() before testing for accurate results.")
-
+    def test(self, type: str = "internal") -> tuple[np.ndarray, np.ndarray]:
         self.pb.prepend_instruction(0, 0, 0, 0, 500, 0, 0, "CONT", 10)
         self.pb.prepend_instruction(0, 0, 2**15-1, 0, 500, 0, 0, "CONT", 10)
         self.pb.prepend_instruction(0, 0, 0, 0, 500, 0, 0, "WAIT", 4)
@@ -38,8 +35,12 @@ class PBTester(Base):
 
         dacs = self.rf_builder.get_dacs()
         adcs = self.rf_builder.get_adcs()
-        self.rf_builder.connect(self.pb, dacs[0])
-        self.rf_builder.connect(adcs[1], logger)
+
+        if type == "internal":
+            self.rf_builder.connect(self.pb, logger)
+        elif type == "feedback":
+            self.rf_builder.connect(self.pb, dacs[0])
+            self.rf_builder.connect(adcs[1], logger)
 
         self.rf_builder.ttl.reset()
 
@@ -65,7 +66,10 @@ class PBTester(Base):
 
         ## Read 10.5 micro-seconds. 10 micro-seconds for the test, and 0.5 at the start for delays and other shenanigans.
         test_data, test_time = logger.read(num_seconds=1.5e-6)
-        test_time *= 8/5
+
+        if type == "feedback":
+            test_time *= 8/5
+
         og_data = test_data.copy()
         og_time = test_time.copy()
 
@@ -74,7 +78,7 @@ class PBTester(Base):
         ## Read statistics
         ## Number of "0" samples at the start, measures the delay between triggering and output
         delay_time, test_data, test_time = self.trim_zeros(test_data, test_time)
-        print(f"\tTrimmed start delay of {delay_time * 1e9:.2f} ns")
+        print(f"\tFound trigger latency of {(delay_time - 4e-9) * 1e9:.2f} ns")
 
         ## Find the end of the pulse by looking for two consecutive "0" samples, measures the pulse duration
         duration, amplitude, frequency, test_data, test_time = self.trim_pulse(test_data, test_time)
@@ -83,21 +87,23 @@ class PBTester(Base):
         print(f"\tTrigger Pulse duration was {duration * 1e9:.2f} ns")
         print(f"\tTrigger Pulse frequency was {frequency:.2f} MHz\n")
 
-        pulse_time, test_data, test_time = self.trim_zeros(test_data, test_time)
-        print(f"\tTrimmed user start delay of {pulse_time * 1e9:.2f} ns")
-
+        pulse_time, _, _ = self.trim_zeros(test_data, test_time)
+        print(f"\tTrimmed tester start delay of {pulse_time * 1e9:.2f} ns")
+        print(f"\tUser Pulse Blaster code starts at {(delay_time + pulse_time + duration) * 1e9:.2f} ns")
 
         ## At this point, test_data and test_time only contain the information from the start of the user program.
         pulseBlasterOutput = self.simulate()
-        sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 64e9)
-        self.compare_waveforms(test_data, test_time, sim_data, sim_time)
+
+        print("\nPulse blaster output from simulation:")
+        for step in pulseBlasterOutput:
+            print(f"\tFreq: {step.freq}, Phase: {step.phase}, Amplitude: {step.amplitude}, Duration: {step.duration}, PhaseHop: {step.phasehop}, Resync: {step.resync}, TTL: {step.ttl}")
+
+
+        sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 16e9)
+        self.compare_waveforms(og_data, og_time, sim_data, sim_time)
 
         test_amp = np.max(test_data)
         sim_data = np.array(sim_data) * (test_amp / np.max(sim_data))
-
-        print("Pulse blaster output:")
-        for step in pulseBlasterOutput:
-            print(f"\tFreq: {step.freq}, Phase: {step.phase}, Amplitude: {step.amplitude}, Duration: {step.duration}, PhaseHop: {step.phasehop}, Resync: {step.resync}, TTL: {step.ttl}")
 
         return og_data, og_time, sim_data, sim_time, delay_time
     
@@ -108,6 +114,8 @@ class PBTester(Base):
         # Match the amplitude of the two waveforms
         test_amp = np.max(test_data)
         sim_data = np.array(sim_data) * (test_amp / np.max(sim_data))
+        sim_data /= np.max(sim_data)
+        test_data = np.array(test_data) / np.max(test_data)
 
         # find the comparison window
         sim_filtered = []
@@ -116,10 +124,12 @@ class PBTester(Base):
             sim_filtered.append(sim_data[idx])
 
         base_mse = np.mean((sim_filtered - test_data) ** 2)
-        print(f"Base MSE: {base_mse}")
+        print("\n\nPerforming initial comparison:")
+        print(f"  Base MSE: {base_mse}\n")
 
         min_mse = base_mse
         min_shift = 0
+        print("Performing time-shifted comparisons:")
         for time_shift in tqdm.tqdm(np.arange(-10e-9, 10e-9, 500e-12)):
             # find the comparison window
             sim_filtered = []
@@ -133,7 +143,7 @@ class PBTester(Base):
                 min_shift = time_shift
 
     
-        print(f"Best time shift: {min_shift * 1e9:.2f} ns, MSE: {min_mse}")
+        print(f"  Best time shift: {min_shift * 1e9:.2f} ns, MSE: {min_mse}")
 
 
 
@@ -162,6 +172,7 @@ class PBTester(Base):
         current_time = delay + 1/fs
         fs /= 1e9 # Expecting GSa/s
 
+        print("\nReconstructing Pulse Blaster waveform at a sample rate of {:.2f} GSa/s.".format(fs))
         for step in tqdm.tqdm(sim_steps):
             step.duration = step.duration * 1e-9 #convert from nano-seconds to seconds
             step.amplitude /= 2
