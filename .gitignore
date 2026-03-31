@@ -9,7 +9,9 @@ __pycache__/
 ./main.py
 main.py
 testing_files/
-
+scratchpad.py
+binary_load.py
+dataI.bin
 # Distribution / packaging
 .Python
 build/

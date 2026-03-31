@@ -43,6 +43,7 @@ class PulseBlaster(Source):
     
     freqRes = _Fclk*16/(2**_freqLen) #frequency resolution in MHz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**_phaseLen) #phase offset resolution in degrees
+    maxAmp = (2**15)-1
     def __init__(self):
         self.instruction_list: list = []
         self.num_instructions: int = 0
@@ -63,7 +64,7 @@ class PulseBlaster(Source):
 
         return super().register_block()
     
-    def add_instruction(self,phasehopFlag: bool,resyncFlag: bool, ampWord: int,  phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
+    def add_instruction(self, freqWord: float, phaseWord:float, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0, ttlStates:int = 0):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
         
@@ -92,6 +93,15 @@ class PulseBlaster(Source):
         if opcode not in PulseBlaster._opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
+        if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
+            if(opcode == "STOP"):
+                resyncFlag = 1
+            else:
+                resyncFlag = 0
+            
+        if (opcode == "STOP") and (resyncFlag == 0):
+            print("WARNING: Resync Flag set to 0 for STOP opcode. This may lead to an inconsistent starting phase across multiple runs of the program.")
+
         if(delayCounter%2 != 0):
             raise ValueError("Delay must be an integer multiple of 2")
         elif(delayCounter < 4):
@@ -108,7 +118,7 @@ class PulseBlaster(Source):
         phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
         phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
         
-        lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
+        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
         instructionString = ""
         
         if(self._phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
@@ -128,7 +138,6 @@ class PulseBlaster(Source):
          
         self.instruction_list.append(instructionString)
         self.num_instructions += 1 
-
 
     def print_program(self,mode = "user"):
         """
@@ -242,19 +251,19 @@ class PulseBlaster(Source):
         
         addrNum = offset
         for instr in self.instruction_list:
-            for i in range(PulseBlaster._instructionLength/32): #this converts each instruction into 32 bit chunks
+            for i in range(int(PulseBlaster._instructionLength/32)): #this converts each instruction into 32 bit chunks
                 flippedData = instr[::-1]
                 scaledData = flippedData[i*32:(i+1)*32]
                 scaledData = scaledData[::-1] #flip back
                 dataFile.write(f"{scaledData}\n") #have to start from the end of the list since it is the lsb
-                addressFile.write(format(addrNum,f"0{awidth}b"))
+                addressFile.write(f"{format(addrNum,f"0{awidth}b")}\n")
                 addrNum += 4 #move 4 bytes over in memory
 
     def generate_testbench_file(self,filename):
         addressPointer=0
         workingDirectory = os.getcwd()
         opcode=self.instruction_list[0][PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]   
-        unwrappedFile = open(os.path.join(workingDirectory,filename),"w")
+        unwrappedFile = open(os.path.join(workingDirectory+filename),"w")
         unwrappedFile.write("1,1,0000000000000000,000000000000000000000000000000,000000000000000000000000000000,000000000000,0\n") #0 pad the start based on reset states
         loopStack = [[(2**self._addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
         loopPointer = 0
@@ -314,7 +323,7 @@ class PulseBlaster(Source):
             phaseOutput = currentInstruction[self._phaseSB : self._phaseSB+self._phaseLen]
             freqOutput = currentInstruction[self._freqSB : self._freqSB+self._freqLen] #account for downscaling from PulseBlaster
             ttlOutput = currentInstruction[self._ttlSB : self._ttlSB+self._ttlLen]
-            print(delayCounter)
+            #print(delayCounter)
             if(waitFlag == 0):
                 for i in range((delayCounter+1)): #plus 1 because for a delay of 5 it should count from 0 up to 5 before wrapping around, divide by 2 since the input is ns not clock cycles
                     unwrappedFile.write(f"{phasehopFlag},{resyncFlag},{ampOutput},{phaseOutput},{freqOutput},{ttlOutput},{waitFlag}\n")
