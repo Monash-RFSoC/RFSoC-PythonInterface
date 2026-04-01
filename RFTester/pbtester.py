@@ -100,6 +100,10 @@ class PBTester(Base):
 
 
         sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 16e9)
+        if type == "feedback":
+            sim_data = np.array(sim_data) * -1
+
+
         self.compare_waveforms(og_data, og_time, sim_data, sim_time)
 
         test_amp = np.max(test_data)

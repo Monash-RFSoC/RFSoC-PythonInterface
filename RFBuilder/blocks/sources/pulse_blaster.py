@@ -145,34 +145,19 @@ class PulseBlaster(Source):
         self.num_instructions += 1 
 
     def prepend_instruction(self,phasehopFlag: bool,resyncFlag: bool, ampWord: int,  phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
-        """
-        Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
-        
-        :param phasehopFlag: Set to true if the frequency word should be used to perform a global phase hop.
-        :type phasehopFlag: bool
-        :param resyncFlag: Set to true if you want to reset the phase accumulation register of the DDS back to 0
-        :type resyncFlag: bool
-        :param ampWord: Amplitude of the output wave, from 0 to 65535 with 0 being min and 65535 being max
-        :type ampWord: int
-        :param phaseWord: Desired phase offset in degrees, will be rounded based on input clock frequency
-        :type phaseWord: float
-        :param frequWord: Desired frequency in MHz, this will be converted to the required phase impliment to calculate that frequency
-        :type frequWord: float
-        :param ttlStates: Input as a binary format, each bit represents a particual ttl line to turn on or off based on the bit value. Only 12 bits avalible
-        :type ttlStates: int
-        :param dataField: Data field, input as either a int or binary value depending on which makes most sense for the given opcode
-        :type dataField: int
-        :param opcode: Used to spesify the opcode for the instruction, can be one of the 8 opcodes as given in the opcode dictionaty
-        :type opcode: str
-        :param delayCounter: How many clock cycles to wait before executing the next instruction
-        :type delayCounter: int
-        :param _Fclk: The frequency that the DDS connected to the PBFSM runs at in MHz. Used to calculate phase incrument and offset
-        :type _Fclk: float
-        """
         self.dirty = True
         if opcode not in PulseBlaster._opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
+        if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
+            if(opcode == "STOP"):
+                resyncFlag = 1
+            else:
+                resyncFlag = 0
+            
+        if (opcode == "STOP") and (resyncFlag == 0):
+            print("WARNING: Resync Flag set to 0 for STOP opcode. This may lead to an inconsistent starting phase across multiple runs of the program.")
+
         if(delayCounter%2 != 0):
             raise ValueError("Delay must be an integer multiple of 2")
         elif(delayCounter < 4):
@@ -180,6 +165,9 @@ class PulseBlaster(Source):
         
         if((0 > ampWord) or ((2**16)-1) < ampWord):
             raise ValueError("ampWord must be in the range of 0 to 65535")
+        
+        if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
+            dataField = dataField - 1
         
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
@@ -189,7 +177,7 @@ class PulseBlaster(Source):
         phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
         phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
         
-        lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
+        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
         instructionString = ""
         
         if(self._phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
