@@ -22,7 +22,7 @@ pb.add_instruction(0, 0, "STOP", 100)
 
 rf_tester = PBTester(rf_builder, pb)
 
-_d, _t, _sim_d, _sim_t, _start_time = rf_tester.test("feedback")
+_d, _t, _sim_d, _sim_t, _start_time = rf_tester.test("internal")
 
 
 

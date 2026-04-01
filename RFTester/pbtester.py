@@ -127,27 +127,32 @@ class PBTester(Base):
             idx = np.argmin(np.abs(sim_time - t))
             sim_filtered.append(sim_data[idx])
 
-        base_mse = np.mean((sim_filtered - test_data) ** 2)
-        print("\n\nPerforming initial comparison:")
-        print(f"  Base MSE: {base_mse}\n")
 
-        min_mse = base_mse
+        base_rmse = np.sqrt(np.mean((sim_filtered - test_data) ** 2))
+        max_rmse = np.max(np.sqrt((sim_filtered - test_data) ** 2)) 
+        min_rmse = np.min(np.sqrt((sim_filtered - test_data) ** 2))
+        print("\n\nPerforming initial comparison:")
+        print(f"  Base RMSE: {base_rmse}\n")
+        print(f"  Max RMSE: {max_rmse}\n")
+        print(f"  Min RMSE: {min_rmse}\n")
+
+        min_rmse = base_rmse
         min_shift = 0
         print("Performing time-shifted comparisons:")
-        for time_shift in tqdm.tqdm(np.arange(-10e-9, 10e-9, 500e-12)):
+        for time_shift in tqdm.tqdm(np.arange(-2e-9, 2e-9, 100e-12)):
             # find the comparison window
             sim_filtered = []
             for t in test_time:
                 idx = np.argmin(np.abs(sim_time - t - time_shift))
                 sim_filtered.append(sim_data[idx])
                 
-            mse = np.mean((sim_filtered - test_data) ** 2)
-            if mse < min_mse:
-                min_mse = mse
+            rmse = np.sqrt(np.mean((sim_filtered - test_data) ** 2))
+            if rmse < min_rmse:
+                min_rmse = rmse
                 min_shift = time_shift
 
     
-        print(f"  Best time shift: {min_shift * 1e9:.2f} ns, MSE: {min_mse}")
+        print(f"  Best time shift: {min_shift * 1e9:.2f} ns, RMSE: {min_rmse}")
 
 
 
