@@ -2,12 +2,12 @@ from RFBuilder.control import ControlManager
 
 from ..base import Source
 from ..port import Port, PortDirection
-from ...networking import send_http_data
+from ...networking import send_httpdata
 import os
 
 
 class PulseBlaster(Source):
-    _opcodeDict = {"CONT":0,
+    opcodeDict = {"CONT":0,
                 "STOP":1,
                 "LOOP":2,
                 "END_LOOP":3,
@@ -16,37 +16,37 @@ class PulseBlaster(Source):
                 "BRANCH":6,
                 "LONG_DELAY":7,
                 "WAIT":8}
-    _instructionLength = 256 #in bits
-    _phaseWordBits = 32
-    _Fclk = 500 #MHz
-    _phasehopLen = 1
-    _resyncLen = 1
-    _ampLen = 16
-    _phaseLen = 32
-    _freqLen = _phaseLen
-    _ttlLen=12
-    _opcodeLen = 4
-    _delayLen = 32
-    _dataLen = 20 
+    instructionLength = 256 #in bits
+    phaseWordBits = 32
+    Fclk = 500 #MHz
+    phasehopLen = 1
+    resyncLen = 1
+    ampLen = 16
+    phaseLen = 32
+    freqLen = phaseLen
+    ttlLen=12
+    opcodeLen = 4
+    delayLen = 32
+    dataLen = 20 
 
-    _phasehopSB = _instructionLength - (_phasehopLen+_resyncLen+_ampLen+_phaseLen+_freqLen+_ttlLen+_opcodeLen+_delayLen+_dataLen)
-    _resyncSB = _phasehopSB + _phasehopLen
-    _ampSB = _resyncSB + _resyncLen
-    _phaseSB = _ampSB + _ampLen
-    _freqSB = _phaseSB + _phaseLen
-    _ttlSB = _freqSB + _freqLen
-    _dataSB = _ttlSB + _ttlLen
-    _opcodeSB = _dataSB + _dataLen
-    _delaySB = _opcodeSB + _opcodeLen
+    phasehopSB = instructionLength - (phasehopLen+resyncLen+ampLen+phaseLen+freqLen+ttlLen+opcodeLen+delayLen+dataLen)
+    resyncSB = phasehopSB + phasehopLen
+    ampSB = resyncSB + resyncLen
+    phaseSB = ampSB + ampLen
+    freqSB = phaseSB + phaseLen
+    ttlSB = freqSB + freqLen
+    dataSB = ttlSB + ttlLen
+    opcodeSB = dataSB + dataLen
+    delaySB = opcodeSB + opcodeLen
 
-    _addrBits = 17 #TODO: have a check to confirm if more then the max possible instructions are written
+    addrBits = 17 #TODO: have a check to confirm if more then the max possible instructions are written
     
-    freqRes = _Fclk*16/(2**_freqLen) #frequency resolution in MHz, multiplied by 16 due to sample rate upscaling
-    phaseRes = 360/(2**_phaseLen) #phase offset resolution in degrees
+    freqRes = Fclk*16/(2**freqLen) #frequency resolution in MHz, multiplied by 16 due to sample rate upscaling
+    phaseRes = 360/(2**phaseLen) #phase offset resolution in degrees
     maxAmp = (2**15)-1
     def __init__(self):
         self.instruction_list: list = []
-        self.num_instructions: int = 0
+        self.numinstructions: int = 0
         
         super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
         self.custom_update = True
@@ -64,7 +64,7 @@ class PulseBlaster(Source):
 
         return super().register_block()
     
-    def add_instruction(self, freqWord: float, phaseWord:float, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0, ttlStates:int = 0):
+    def addinstruction(self, freqWord: float, phaseWord:float, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0, ttlStates:int = 0):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
         
@@ -86,11 +86,11 @@ class PulseBlaster(Source):
         :type opcode: str
         :param delayCounter: How many clock cycles to wait before executing the next instruction
         :type delayCounter: int
-        :param _Fclk: The frequency that the DDS connected to the PBFSM runs at in MHz. Used to calculate phase incrument and offset
-        :type _Fclk: float
+        :param Fclk: The frequency that the DDS connected to the PBFSM runs at in MHz. Used to calculate phase incrument and offset
+        :type Fclk: float
         """
         self.dirty = True
-        if opcode not in PulseBlaster._opcodeDict:
+        if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
         if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
@@ -115,31 +115,31 @@ class PulseBlaster(Source):
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
         
-        phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
-        phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
+        phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk) #used to determin the frequency
+        phaseOffset = round((2**PulseBlaster.phaseWordBits)*phaseWord/360) 
         
-        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
+        #lenTotal = self.phasehopLen + self.resyncLen + self.ampLen + self.phaseLen + self.freqLen + self.ttlLen + self.dataLen + self.opcodeLen + self.delayLen
         instructionString = ""
         
-        if(self._phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
-            raise ValueError("Defined bus width for instruction (_instructionLength) shorter then actual instruction length")
+        if(self.phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
+            raise ValueError("Defined bus width for instruction (instructionLength) shorter then actual instruction length")
         else: #0 pad up to the full bus width
-            for i in range(self._phasehopSB):
+            for i in range(self.phasehopSB):
                 instructionString += "0"
-        instructionString += format(int(phasehopFlag),f"0{self._phasehopLen}b")
-        instructionString += format(int(resyncFlag),f"0{self._resyncLen}b")
-        instructionString += format(int(ampWord),f"0{self._ampLen}b")
-        instructionString += format(int(phaseOffset),f"0{self._phaseLen}b")
-        instructionString += format(int(phaseIncr),f"0{self._freqLen}b")
-        instructionString += format(int(ttlStates),f"0{self._ttlLen}b")
-        instructionString += format(int(dataField),f"0{self._dataLen}b")
-        instructionString += format(PulseBlaster._opcodeDict[opcode],f"0{self._opcodeLen}b")
-        instructionString += format(int(delayCounter),f"0{self._delayLen}b")
+        instructionString += format(int(phasehopFlag),f"0{self.phasehopLen}b")
+        instructionString += format(int(resyncFlag),f"0{self.resyncLen}b")
+        instructionString += format(int(ampWord),f"0{self.ampLen}b")
+        instructionString += format(int(phaseOffset),f"0{self.phaseLen}b")
+        instructionString += format(int(phaseIncr),f"0{self.freqLen}b")
+        instructionString += format(int(ttlStates),f"0{self.ttlLen}b")
+        instructionString += format(int(dataField),f"0{self.dataLen}b")
+        instructionString += format(PulseBlaster.opcodeDict[opcode],f"0{self.opcodeLen}b")
+        instructionString += format(int(delayCounter),f"0{self.delayLen}b")
          
         self.instruction_list.append(instructionString)
-        self.num_instructions += 1 
+        self.numinstructions += 1 
 
-    def print_program(self,mode = "user"):
+    def printprogram(self,mode = "user"):
         """
         Prints out all instructions in the current program.
         
@@ -149,35 +149,35 @@ class PulseBlaster(Source):
         i = 0
         for instruction in self.instruction_list:
             if (mode == "user"):
-                phaseHopFlag = not bool(int(instruction[self._phasehopSB : self._phasehopSB + self._phasehopLen])) #inverted back into user friendly value
-                resyncFlag = not bool(int(instruction[self._resyncSB : self._resyncSB + self._resyncLen])) #inverted back into user friendly value
-                amp = int(instruction[self._ampSB : self._ampSB + self._ampLen])
-                phase = int(instruction[self._phaseSB : self._phaseSB + self._phaseLen],2)
-                phase = phase*360/(2**PulseBlaster._phaseWordBits)*4
+                phaseHopFlag = not bool(int(instruction[self.phasehopSB : self.phasehopSB + self.phasehopLen])) #inverted back into user friendly value
+                resyncFlag = not bool(int(instruction[self.resyncSB : self.resyncSB + self.resyncLen])) #inverted back into user friendly value
+                amp = int(instruction[self.ampSB : self.ampSB + self.ampLen])
+                phase = int(instruction[self.phaseSB : self.phaseSB + self.phaseLen],2)
+                phase = phase*360/(2**PulseBlaster.phaseWordBits)*4
 
-                freq = int(instruction[self._freqSB : self._freqSB + self._freqLen],2)
-                freq = (freq*PulseBlaster._Fclk)/(2**PulseBlaster._phaseWordBits)*16
+                freq = int(instruction[self.freqSB : self.freqSB + self.freqLen],2)
+                freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)*16
 
-                ttlOuts = instruction[self._ttlSB : self._ttlSB + self._ttlLen]
-                data = int(instruction[self._dataSB : self._dataSB + self._dataLen],2)
-                opcode = int(instruction[self._opcodeSB : self._opcodeSB + self._opcodeLen],2)
-                for key in self._opcodeDict.keys():
-                    if self._opcodeDict[key] == opcode:
+                ttlOuts = instruction[self.ttlSB : self.ttlSB + self.ttlLen]
+                data = int(instruction[self.dataSB : self.dataSB + self.dataLen],2)
+                opcode = int(instruction[self.opcodeSB : self.opcodeSB + self.opcodeLen],2)
+                for key in self.opcodeDict.keys():
+                    if self.opcodeDict[key] == opcode:
                         opcode = key
-                delay = int(instruction[self._delaySB : self._delaySB + self._delayLen],2)
+                delay = int(instruction[self.delaySB : self.delaySB + self.delayLen],2)
                 print(f"Instruction {i}: phase hop flag = {phaseHopFlag}, resync = {resyncFlag}, amp = {amp}, phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}, opcode = {opcode}, delay = {delay} clock cycles\n")
             
             elif (mode == "bin"):
                 print(f"Instruction {i}: {instruction}")
             elif (mode == "hex"):
                 instructionString = ""
-                for j in range(int(self._instructionLength/32)):
+                for j in range(int(self.instructionLength/32)):
                     currentString = format(int(instruction[j*32 : (j+1)*32],2),"08X")
                     instructionString += currentString
                 print(f"Instruction {i}: {instructionString}")
             elif (mode == "dec"):
                 instructionString = ""
-                for j in range(int(self._instructionLength/32)):
+                for j in range(int(self.instructionLength/32)):
                     currentString = format(int(instruction[j*32 : (j+1)*32],2),"010d")
                     instructionString += currentString
                 print(f"Instruction {i}: {instructionString}")
@@ -185,15 +185,15 @@ class PulseBlaster(Source):
                 print("Unknown print mode requested")
             i += 1
 
-    def clean_program(self):
+    def cleanprogram(self):
         """Removes all instructions from the current program."""
         self.dirty = True
-        self.num_instructions = 0
+        self.numinstructions = 0
         self.instruction_list = []
 
-    def save_program(self,filename: str):
+    def saveprogram(self,filename: str):
         """
-        Save program to a text file in the current working directory which can later be reloaded using load_program.
+        Save program to a text file in the current working directory which can later be reloaded using loadprogram.
 
         :param filename: Name of the file to save the program in. Include file extension in filename
         :type filename: string
@@ -204,7 +204,7 @@ class PulseBlaster(Source):
             fileHandler.write(entry+"\n")
         fileHandler.close()
 
-    def load_program(self, filename: str):
+    def loadprogram(self, filename: str):
         """
         Load a program from a textfile of the name "programName", make sure to include file extention.
 
@@ -214,18 +214,26 @@ class PulseBlaster(Source):
         try:
             fileHandler = open(filename,"r")
         except FileNotFoundError:
-            print(f"load_program was unable to find {filename}")
+            print(f"loadprogram was unable to find {filename}")
             return -1
         programList = fileHandler.readlines()
         self.instruction_list = programList
+
+    def get_freq_res():
+        return PulseBlaster.freqRes
+
+    def get_phase_res():
+        return PulseBlaster.phaseRes
+    
+    
 
     def update(self):
         bytes_array = bytearray()
         stopPresent = 0
         for instruction in self.instruction_list:
-            if(int(instruction[self._opcodeSB : self._opcodeSB + self._opcodeLen],2) == PulseBlaster._opcodeDict["STOP"]):
+            if(int(instruction[self.opcodeSB : self.opcodeSB + self.opcodeLen],2) == PulseBlaster.opcodeDict["STOP"]):
                 stopPresent = 1
-            for i in range(int(PulseBlaster._instructionLength/8)-1,-1,-1): 
+            for i in range(int(PulseBlaster.instructionLength/8)-1,-1,-1): 
                 bytes_array += int(instruction[i*8:(i+1)*8],2).to_bytes(1,"little",signed = False)
         if(stopPresent == 0):
             raise ValueError("PulseBlaster program must contain a stop command")
@@ -233,7 +241,7 @@ class PulseBlaster(Source):
 
     def __str__(self):
         output = ""
-        output += f"[PulseBlaster] Number of Instructions = {self.num_instructions}\n"
+        output += f"[PulseBlaster] Number of Instructions = {self.numinstructions}\n"
         for port in self.ports:
             output += f"\t\t{str(port)}\n"
         return output
@@ -251,7 +259,7 @@ class PulseBlaster(Source):
         
         addrNum = offset
         for instr in self.instruction_list:
-            for i in range(int(PulseBlaster._instructionLength/32)): #this converts each instruction into 32 bit chunks
+            for i in range(int(PulseBlaster.instructionLength/32)): #this converts each instruction into 32 bit chunks
                 flippedData = instr[::-1]
                 scaledData = flippedData[i*32:(i+1)*32]
                 scaledData = scaledData[::-1] #flip back
@@ -259,37 +267,37 @@ class PulseBlaster(Source):
                 addressFile.write(f"{format(addrNum,f"0{awidth}b")}\n")
                 addrNum += 4 #move 4 bytes over in memory
 
-    def generate_testbench_file(self,filename):
+    def generate_testbenchfile(self,filename):
         addressPointer=0
         workingDirectory = os.getcwd()
-        opcode=self.instruction_list[0][PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]   
+        opcode=self.instruction_list[0][PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]   
         unwrappedFile = open(os.path.join(workingDirectory+filename),"w")
         unwrappedFile.write("1,1,0000000000000000,000000000000000000000000000000,000000000000000000000000000000,000000000000,0\n") #0 pad the start based on reset states
-        loopStack = [[(2**self._addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
+        loopStack = [[(2**self.addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
         loopPointer = 0
         rtsAddress = 0
         counter = 0
         while (addressPointer < len(self.instruction_list)):
             currentInstruction = self.instruction_list[addressPointer]
-            opcode = currentInstruction[PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]
+            opcode = currentInstruction[PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]
             opcode = int(opcode,2)
-            delayCounter = int(currentInstruction[self._delaySB : self._delaySB+self._delayLen],2)
+            delayCounter = int(currentInstruction[self.delaySB : self.delaySB+self.delayLen],2)
             waitFlag=0
 
-            if(opcode == self._opcodeDict["CONT"]):
+            if(opcode == self.opcodeDict["CONT"]):
                 addressPointer += 1
-            elif (opcode == self._opcodeDict["STOP"]):
+            elif (opcode == self.opcodeDict["STOP"]):
                 addressPointer = len(self.instruction_list)
-            elif (opcode == self._opcodeDict["LOOP"]):
+            elif (opcode == self.opcodeDict["LOOP"]):
                 if(addressPointer != loopStack[loopPointer][0]):
-                    if(loopStack[loopPointer][0] == 2**self._addrBits-1):
+                    if(loopStack[loopPointer][0] == 2**self.addrBits-1):
                         loopStack[loopPointer][0] = addressPointer
-                        loopStack[loopPointer][1] = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)
+                        loopStack[loopPointer][1] = int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2)
                     else:
                         loopPointer += 1
-                        loopStack.append([addressPointer,int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)])
+                        loopStack.append([addressPointer,int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2)])
                 addressPointer += 1
-            elif (opcode == self._opcodeDict["END_LOOP"]):
+            elif (opcode == self.opcodeDict["END_LOOP"]):
                 loopStack[loopPointer][1] -= 1
                 if(loopStack[loopPointer][1] == 0):
                     addressPointer +=1
@@ -297,32 +305,32 @@ class PulseBlaster(Source):
                         loopStack.pop(-1) #remove that entry from the loopStack
                         loopPointer -= 1
                     else:
-                        loopStack = [[2**self._addrBits-1,0]]
+                        loopStack = [[2**self.addrBits-1,0]]
                         loopPointer = 0
                 else:
-                    addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the loop address in the data field
-            elif (opcode == self._opcodeDict["JSR"]):
+                    addressPointer = int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2) #should have the loop address in the data field
+            elif (opcode == self.opcodeDict["JSR"]):
                 rtsAddress = addressPointer+1
-                addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the subroutine address in the data field
-            elif (opcode == self._opcodeDict["RTS"]):
+                addressPointer = int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2) #should have the subroutine address in the data field
+            elif (opcode == self.opcodeDict["RTS"]):
                 addressPointer = rtsAddress
-            elif (opcode == self._opcodeDict["BRANCH"]):
-                addressPointer = int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2) #should have the branch address in the data field
-            elif (opcode == self._opcodeDict["LONG_DELAY"]):
+            elif (opcode == self.opcodeDict["BRANCH"]):
+                addressPointer = int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2) #should have the branch address in the data field
+            elif (opcode == self.opcodeDict["LONG_DELAY"]):
                 addressPointer += 1 #here there is just a longer delay which the tb currently doesn't check since it is an internal param
-                delayCounter = delayCounter * int(currentInstruction[self._dataSB : self._dataSB+self._dataLen],2)
-            elif (opcode == self._opcodeDict["WAIT"]):
+                delayCounter = delayCounter * int(currentInstruction[self.dataSB : self.dataSB+self.dataLen],2)
+            elif (opcode == self.opcodeDict["WAIT"]):
                 addressPointer += 1 #since this is just getting the expected output of the instructions no need to do anything apart from incriment counter
                 waitFlag = 1
             else:
                 raise ValueError(f"The instruction at address {addressPointer} does not contain a valid opcode: {opcode}")
 
-            ampOutput = currentInstruction[self._ampSB : self._ampSB+self._ampLen]
-            resyncFlag = currentInstruction[self._resyncSB : self._resyncSB+self._resyncLen]
-            phasehopFlag = currentInstruction[self._phasehopSB : self._phasehopSB+self._phasehopLen]
-            phaseOutput = currentInstruction[self._phaseSB : self._phaseSB+self._phaseLen]
-            freqOutput = currentInstruction[self._freqSB : self._freqSB+self._freqLen] #account for downscaling from PulseBlaster
-            ttlOutput = currentInstruction[self._ttlSB : self._ttlSB+self._ttlLen]
+            ampOutput = currentInstruction[self.ampSB : self.ampSB+self.ampLen]
+            resyncFlag = currentInstruction[self.resyncSB : self.resyncSB+self.resyncLen]
+            phasehopFlag = currentInstruction[self.phasehopSB : self.phasehopSB+self.phasehopLen]
+            phaseOutput = currentInstruction[self.phaseSB : self.phaseSB+self.phaseLen]
+            freqOutput = currentInstruction[self.freqSB : self.freqSB+self.freqLen] #account for downscaling from PulseBlaster
+            ttlOutput = currentInstruction[self.ttlSB : self.ttlSB+self.ttlLen]
             #print(delayCounter)
             if(waitFlag == 0):
                 for i in range((delayCounter+1)): #plus 1 because for a delay of 5 it should count from 0 up to 5 before wrapping around, divide by 2 since the input is ns not clock cycles
