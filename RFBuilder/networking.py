@@ -33,7 +33,8 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
                 'Accept': '*/*',
                 'User-Agent': 'RFSoC-Python-Interface/1.0'
             }
-            # print(f"Sending JSON data to {url} with headers {headers}")
+            # print(f"Sending JSON data to {url}")
+            # print(f"Data: {json.dumps(data)}")
             response = session.post(url, json=data, headers=headers, timeout=timeout)
         else:
             headers = {
@@ -68,7 +69,7 @@ def send_http_data(data: dict | bytes, endpoint: str, ip: str, port: int) -> dic
         print(f"Error: {response.status_code}")
         response_json = response.json()
         print(f"Response Content:")
-        print(f"  Status: {response_json["status"]}")
-        print(f"  Error: {response_json["error"]}")
+        print(f"  Status: {response_json['status']}")
+        print(f"  Error: {response_json['error']}")
         
         return {"error": response.status_code}

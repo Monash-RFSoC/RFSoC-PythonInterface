@@ -1,3 +1,5 @@
+from fileinput import filename
+
 from RFBuilder.control import ControlManager
 
 from ..base import Source
@@ -110,6 +112,9 @@ class PulseBlaster(Source):
         if((0 > ampWord) or ((2**16)-1) < ampWord):
             raise ValueError("ampWord must be in the range of 0 to 65535")
         
+        if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
+            dataField = dataField - 1
+        
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
@@ -139,7 +144,61 @@ class PulseBlaster(Source):
         self.instruction_list.append(instructionString)
         self.numinstructions += 1 
 
-    def printprogram(self,mode = "user"):
+    def prepend_instruction(self,phasehopFlag: bool,resyncFlag: bool, ampWord: int,  phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
+        self.dirty = True
+        if opcode not in PulseBlaster._opcodeDict:
+            raise ValueError(f"Instruction {opcode} is not a known instruction word")
+        
+        if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
+            if(opcode == "STOP"):
+                resyncFlag = 1
+            else:
+                resyncFlag = 0
+            
+        if (opcode == "STOP") and (resyncFlag == 0):
+            print("WARNING: Resync Flag set to 0 for STOP opcode. This may lead to an inconsistent starting phase across multiple runs of the program.")
+
+        if(delayCounter%2 != 0):
+            raise ValueError("Delay must be an integer multiple of 2")
+        elif(delayCounter < 4):
+            raise ValueError("Delay must be at least 4ns")
+        
+        if((0 > ampWord) or ((2**16)-1) < ampWord):
+            raise ValueError("ampWord must be in the range of 0 to 65535")
+        
+        if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
+            dataField = dataField - 1
+        
+        freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
+        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
+        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
+        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
+        
+        phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
+        phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
+        
+        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
+        instructionString = ""
+        
+        if(self._phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
+            raise ValueError("Defined bus width for instruction (_instructionLength) shorter then actual instruction length")
+        else: #0 pad up to the full bus width
+            for i in range(self._phasehopSB):
+                instructionString += "0"
+        instructionString += format(int(phasehopFlag),f"0{self._phasehopLen}b")
+        instructionString += format(int(resyncFlag),f"0{self._resyncLen}b")
+        instructionString += format(int(ampWord),f"0{self._ampLen}b")
+        instructionString += format(int(phaseOffset),f"0{self._phaseLen}b")
+        instructionString += format(int(phaseIncr),f"0{self._freqLen}b")
+        instructionString += format(int(ttlStates),f"0{self._ttlLen}b")
+        instructionString += format(int(dataField),f"0{self._dataLen}b")
+        instructionString += format(PulseBlaster._opcodeDict[opcode],f"0{self._opcodeLen}b")
+        instructionString += format(int(delayCounter),f"0{self._delayLen}b")
+         
+        self.instruction_list.insert(0,instructionString)
+        self.num_instructions += 1 
+
+    def print_program(self,mode = "user"):
         """
         Prints out all instructions in the current program.
         

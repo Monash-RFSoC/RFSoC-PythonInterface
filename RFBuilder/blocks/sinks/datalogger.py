@@ -1,5 +1,3 @@
-from anaconda_cli_base import console
-
 from RFBuilder.control import ControlManager
 
 from ..base import Sink

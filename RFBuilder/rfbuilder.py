@@ -1,5 +1,6 @@
 from abc import ABC
 from enum import Enum
+import time
 
 from RFBuilder.control import ControlManager, ControlPin
 from .boards.boards import Board
@@ -14,13 +15,21 @@ class Clock_Config(Enum):
     Int_Ref = "int_ref"
 
 class RFBuilder(ABC):
-    def __init__(self, board: Board, ip: str, port: int):
+    def __init__(self, board: Board, ip: str, port: int = 8080):
+        """ Initialise the RFBuilder instance, with the required ip, port and RFSoC class.
+
+        Args:
+            board (Board): RFSoC Board object. Must by a subclass of the RFBuilder.boards.Board class. Currently only the RFSoc4x2 exists.
+            ip (str): IPv4 address of the RFSoC board, will be displayed on the OLED Screen, in the format "xxx.xxx.xxx.xxx"
+            port (int): Port number for the RFSoC board, default is 8080
+        """
         # RFBuilder information
         self.board = board
         self.blocks : list[RFBlock] = [] 
         self.connections : list[tuple[int, int]] = []
         self.connections_dirty : bool = False
-        
+        self.sinc_filters : int = 0
+
         # RFBuilder Networking Information
         self.ip = ip
         self.port = port
@@ -31,14 +40,14 @@ class RFBuilder(ABC):
         # Register all available DACs
         for dac in self.board.get_dacs():
             block = DAC(dac["name"], dac["id"])
-            self.register_block(block)
+            self.add(block)
 
         for adc in self.board.get_adcs():
             block = ADC(adc["name"], adc["id"])
-            self.register_block(block)
+            self.add(block)
 
 
-    def register_block(self, block: RFBlock):
+    def add(self, block: RFBlock):
         ## TODO: Add a dictionary to each board file that specifies how many of each block are available.
 
         same_blocks = [b for b in self.blocks if block.name in b.name]
@@ -46,7 +55,20 @@ class RFBuilder(ABC):
         self.blocks.append(block)
         block.register_block(self.ip, self.port, len(same_blocks), self.ttl)
 
-    def register_connection(self, source_block: RFBlock, sink_block: RFBlock):
+    def is_dirty(self):
+        if self.connections_dirty:
+            return True
+
+        for block in self.blocks:
+            if block.dirty:
+                return True
+
+        if self.ttl.dirty:
+            return True
+
+        return False
+    
+    def connect(self, source_block: RFBlock, sink_block: RFBlock):
         if not source_block.registered:
             raise ModuleNotFoundError(f"The {source_block} module has not been registered with an RFBuilder system.")
         
@@ -103,6 +125,8 @@ class RFBuilder(ABC):
                 "operations": operations_packet
             }
 
+        system["sinc_filter"] = self.sinc_filters
+
         if (system != {"blocks": []}):
             ## If there are updates to send, construct the data object to send
             request = {
@@ -117,6 +141,7 @@ class RFBuilder(ABC):
             ## No system updates to send, jump to custom updates
             pass
 
+        time.sleep(0.2)
         # Custom updates for blocks that require it
         for block in update_queue:
             data, endpoint = block.update()
@@ -154,6 +179,10 @@ class RFBuilder(ABC):
                 
                 
         return adcs
+
+    def set_sinc_filters(self, status: int):
+        self.sinc_filters = status
+        self.dirty = True
 
     def __str__(self):
         output = ""
