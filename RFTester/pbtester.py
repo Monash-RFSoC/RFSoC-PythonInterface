@@ -3,6 +3,7 @@ import tqdm
 import RFBuilder
 from RFBuilder.blocks.sources.pulse_blaster import PulseBlaster
 from .rftester import Base
+import time
 
 import numpy as np
 
@@ -49,23 +50,26 @@ class PBTester(Base):
         self.rf_builder.ttl.connect("SOFTWARE2", "PB_RUN")
 
         self.rf_builder.ttl.update_state("SOFTWARE1", 0)
-        self.rf_builder.ttl.update_state("SOFTWARE1", 1)
-        self.rf_builder.ttl.update_state("SOFTWARE2", 0)
-        self.rf_builder.ttl.update_state("SOFTWARE0", 0)
 
         self.rf_builder.update()
-
-        ## Pulse blaster has had a small 'wait' instruction prepended to it, so the users program should not be running yet.
-        # will only test ~10 micro-seconds worth of pulses.
-        
-        ## Run the pulse blaster, it should stop at the test harness WAIT command
+        time.sleep(1)
+        self.rf_builder.ttl.update_state("SOFTWARE2", 0)
+        self.rf_builder.ttl.update_state("SOFTWARE1", 1)
         self.rf_builder.ttl.update_state("SOFTWARE2", 1)
+        self.rf_builder.ttl.update_state("SOFTWARE2", 0)
+        self.rf_builder.ttl.update_state("SOFTWARE0", 1)
+        self.rf_builder.ttl.update_state("SOFTWARE0", 0)
+
 
         ## Trigger the blaster and digitizer capture.
-        self.rf_builder.ttl.update_state("SOFTWARE0", 2)
+
+        pulseBlasterOutput = self.simulate()
+        
+        pulseBlasterLength = sum([step.duration * 1e-9 for step in pulseBlasterOutput])
+
 
         ## Read 10.5 micro-seconds. 10 micro-seconds for the test, and 0.5 at the start for delays and other shenanigans.
-        test_data, test_time = logger.read(num_seconds=1.5e-6)
+        test_data, test_time = logger.read(num_seconds=pulseBlasterLength + 300e-9)
 
         if type == "feedback":
             test_time *= 8/5
@@ -73,6 +77,8 @@ class PBTester(Base):
         og_data = test_data.copy()
         og_time = test_time.copy()
 
+        # return og_data, og_time, 0, 0, 0
+    
         print("Data logger read complete. Data:")
 
         ## Read statistics
@@ -91,25 +97,27 @@ class PBTester(Base):
         print(f"\tTrimmed tester start delay of {pulse_time * 1e9:.2f} ns")
         print(f"\tUser Pulse Blaster code starts at {(delay_time + pulse_time + duration) * 1e9:.2f} ns")
 
-        ## At this point, test_data and test_time only contain the information from the start of the user program.
-        pulseBlasterOutput = self.simulate()
 
         print("\nPulse blaster output from simulation:")
         for step in pulseBlasterOutput:
             print(f"\tFreq: {step.freq}, Phase: {step.phase}, Amplitude: {step.amplitude}, Duration: {step.duration}, PhaseHop: {step.phasehop}, Resync: {step.resync}, TTL: {step.ttl}")
 
-
-        sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 16e9)
+        fs = 8e9
+        if type == "feedback":
+            delay_time += 0.175e-9
+            fs = 32e9
+        
+        sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, fs)
         if type == "feedback":
             sim_data = np.array(sim_data) * -1
 
 
-        self.compare_waveforms(og_data, og_time, sim_data, sim_time)
+        worst_sample = self.compare_waveforms(og_data, og_time, sim_data, sim_time)
 
         test_amp = np.max(test_data)
         sim_data = np.array(sim_data) * (test_amp / np.max(sim_data))
 
-        return og_data, og_time, sim_data, sim_time, delay_time
+        return og_data, og_time, sim_data, sim_time, delay_time, worst_sample
     
 
     def compare_waveforms(self, test_data: np.ndarray, test_time: np.ndarray, sim_data: np.ndarray, sim_time: np.ndarray):
@@ -130,6 +138,7 @@ class PBTester(Base):
 
         base_rmse = np.sqrt(np.mean((sim_filtered - test_data) ** 2))
         max_rmse = np.max(np.sqrt((sim_filtered - test_data) ** 2)) 
+        _max_rmse_time = test_time[np.argmax(np.sqrt((sim_filtered - test_data) ** 2))]
         min_rmse = np.min(np.sqrt((sim_filtered - test_data) ** 2))
         print("\n\nPerforming initial comparison:")
         print(f"  Base RMSE: {base_rmse}\n")
@@ -139,7 +148,7 @@ class PBTester(Base):
         min_rmse = base_rmse
         min_shift = 0
         print("Performing time-shifted comparisons:")
-        for time_shift in tqdm.tqdm(np.arange(-2e-9, 2e-9, 100e-12)):
+        for time_shift in tqdm.tqdm(np.arange(-1e-9, 1e-9, 125e-12)):
             # find the comparison window
             sim_filtered = []
             for t in test_time:
@@ -152,8 +161,8 @@ class PBTester(Base):
                 min_shift = time_shift
 
     
-        print(f"  Best time shift: {min_shift * 1e9:.2f} ns, RMSE: {min_rmse}")
-
+        print(f"  Best time shift: {min_shift * 1e9:.3f} ns, RMSE: {min_rmse}")
+        return _max_rmse_time
 
 
     
@@ -178,18 +187,29 @@ class PBTester(Base):
 
         phase_inc = 0
 
-        current_time = delay + 1/fs
+        current_time = delay
         fs /= 1e9 # Expecting GSa/s
 
-        print("\nReconstructing Pulse Blaster waveform at a sample rate of {:.2f} GSa/s.".format(fs))
-        for step in tqdm.tqdm(sim_steps):
-            step.duration = step.duration * 1e-9 #convert from nano-seconds to seconds
+
+        print("\nReconstructing Pulse Blaster waveform at a sample rate of {:.2f} GSa/s. First sample is at t={:.2f} ns.".format(fs, current_time * 1e9))
+        for i, step in enumerate(tqdm.tqdm(sim_steps)):
+            step.duration = step.duration * 1e-9 # convert from nano-seconds to seconds
             step.amplitude /= 2
-            num_samples = int(step.duration / (1e-9 / fs)) #convert duration from nano-seconds to number of samples at 8 GSPS
+            num_samples = int(step.duration / (1e-9 / fs)) # convert duration from nano-seconds to number of samples at 8 GSPS
+            print(f"Duration: {step.duration * 1e9:.2f} ns, Num samples: {num_samples}")
+
             t = np.linspace(current_time, current_time + step.duration, num_samples, endpoint=False)
-            for _ in range(num_samples):
-                phase_inc += (2 * np.pi * step.freq) * (1e-9 / fs) #increment phase based on frequency and sample rate
-                waveform = step.amplitude * np.sin(phase_inc)
+            for n in range(num_samples):
+                waveform = step.amplitude * np.sin(phase_inc + np.deg2rad(step.phase))
+                phase_inc += (2 * np.pi * step.freq) * (1e-9 / fs) # increment phase based on frequency and sample rate
+                phase_inc = phase_inc % (2 * np.pi) # wrap phase to [0, 2*pi]
+
+                if not i == len(sim_steps) - 1:
+                    if (step.resync == 0 and sim_steps[i + 1].resync == 1):
+                        if n == num_samples - 1:
+                            phase_inc = 0
+                         
+
                 data.append(waveform)
 
             time.append(t)
@@ -263,9 +283,11 @@ class PBTester(Base):
             freqOutput = self.fetch_mask(currentInstruction, self.pb._freqSB, self.pb._freqLen) #account for downscaling from PulseBlaster
             ttlOutput = currentInstruction[self.pb._ttlSB : self.pb._ttlSB+self.pb._ttlLen]
 
-            freq_scalar = 4_000_000_000 / (1 << 31)
+            freq_scalar = 4_000_000_000 / (1 << 47)
+            phase_scalar = 180 / (1 << 47)
 
-            sim_step = PBSimStep(np.ceil(freqOutput * freq_scalar), int(phaseOutput, 2), int(ampOutput, 2), delayCounter * 2 + 2, int(phasehopFlag, 2), int(resyncFlag, 2), int(ttlOutput, 2))
+            print(int(phaseOutput, 2) * phase_scalar)
+            sim_step = PBSimStep(np.ceil(freqOutput * freq_scalar), int(phaseOutput, 2) * phase_scalar, int(ampOutput, 2) if opcode != self.pb._opcodeDict["STOP"] else 0, delayCounter * 2 + 2, 0 if int(phasehopFlag, 2) else 1, 0 if int(resyncFlag, 2) else 1, int(ttlOutput, 2))
             outputWaveform.append(sim_step)
                 
                 

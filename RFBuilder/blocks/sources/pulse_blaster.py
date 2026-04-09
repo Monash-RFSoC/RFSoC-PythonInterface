@@ -19,12 +19,12 @@ class PulseBlaster(Source):
                 "LONG_DELAY":7,
                 "WAIT":8}
     _instructionLength = 256 #in bits
-    _phaseWordBits = 32
+    _phaseWordBits = 48
     _Fclk = 500 #MHz
     _phasehopLen = 1
     _resyncLen = 1
     _ampLen = 16
-    _phaseLen = 32
+    _phaseLen = 48
     _freqLen = _phaseLen
     _ttlLen=12
     _opcodeLen = 4
@@ -169,10 +169,10 @@ class PulseBlaster(Source):
         if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
             dataField = dataField - 1
         
-        freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
-        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
-        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
-        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
+        freqWord = freqWord/16 # compensate for the upscaling of 16 in the polyphase DDS
+        phasehopFlag = 1 - int(phasehopFlag) # for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
+        resyncFlag = 1 - int(resyncFlag) # flips 1 to 0 and 0 to 1, done as the dds has an active low reset
+        delayCounter = (delayCounter-2) / 2 # each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
         
         phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
         phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
