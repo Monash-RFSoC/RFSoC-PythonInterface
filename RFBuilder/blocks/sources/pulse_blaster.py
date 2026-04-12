@@ -19,12 +19,12 @@ class PulseBlaster(Source):
                 "LONG_DELAY":7,
                 "WAIT":8}
     instructionLength = 256 #in bits
-    phaseWordBits = 32
+    phaseWordBits = 48
     Fclk = 500 #MHz
     phasehopLen = 1
     resyncLen = 1
     ampLen = 16
-    phaseLen = 32
+    phaseLen = 48
     freqLen = phaseLen
     ttlLen=12
     opcodeLen = 4
@@ -66,7 +66,7 @@ class PulseBlaster(Source):
 
         return super().register_block()
     
-    def addinstruction(self, freqWord: float, phaseWord:float, opcode: str,delayCounter: int, phasehopFlag:bool = False,resyncFlag:bool = -1, ampWord:int = maxAmp, dataField:int = 0, ttlStates:int = 0):
+    def add_instruction(self, opcode:str, ttlStates:int,  freqWord:float, phaseWord:float, ampWord:int, delayCounter:int, dataField:int = 0, resyncFlag:bool = None):
         """
         Given the input parameters, create the 128 bit wide instruction and adds it to the program which can be sent to the pulse blaster.
         
@@ -95,7 +95,7 @@ class PulseBlaster(Source):
         if opcode not in PulseBlaster.opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
-        if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
+        if resyncFlag == None: #if the user does not input a value, default to a value based on opcode
             if(opcode == "STOP"):
                 resyncFlag = 1
             else:
@@ -115,6 +115,7 @@ class PulseBlaster(Source):
         if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
             dataField = dataField - 1
         
+        phasehopFlag = 0
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
@@ -143,13 +144,14 @@ class PulseBlaster(Source):
          
         self.instruction_list.append(instructionString)
         self.numinstructions += 1 
+        return self.numinstructions - 1
 
-    def prepend_instruction(self,phasehopFlag: bool,resyncFlag: bool, ampWord: int,  phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
+    def prepend_instruction(self, opcode:str, ttlStates:int,  freqWord:float, phaseWord:float, ampWord:int, delayCounter:int, dataField:int = 0, resyncFlag:bool = None):
         self.dirty = True
         if opcode not in PulseBlaster._opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
-        if resyncFlag == -1: #if the user does not input a value, default to a value based on opcode
+        if resyncFlag == None: #if the user does not input a value, default to a value based on opcode
             if(opcode == "STOP"):
                 resyncFlag = 1
             else:
@@ -169,6 +171,7 @@ class PulseBlaster(Source):
         if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
             dataField = dataField - 1
         
+        phasehopFlag = 0
         freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
@@ -197,6 +200,7 @@ class PulseBlaster(Source):
          
         self.instruction_list.insert(0,instructionString)
         self.num_instructions += 1 
+        return 0
 
     def print_program(self,mode = "user"):
         """
@@ -244,13 +248,13 @@ class PulseBlaster(Source):
                 print("Unknown print mode requested")
             i += 1
 
-    def cleanprogram(self):
+    def clean_program(self):
         """Removes all instructions from the current program."""
         self.dirty = True
         self.numinstructions = 0
         self.instruction_list = []
 
-    def saveprogram(self,filename: str):
+    def save_program(self,filename: str):
         """
         Save program to a text file in the current working directory which can later be reloaded using loadprogram.
 
@@ -263,7 +267,7 @@ class PulseBlaster(Source):
             fileHandler.write(entry+"\n")
         fileHandler.close()
 
-    def loadprogram(self, filename: str):
+    def load_program(self, filename: str):
         """
         Load a program from a textfile of the name "programName", make sure to include file extention.
 
@@ -305,7 +309,7 @@ class PulseBlaster(Source):
             output += f"\t\t{str(port)}\n"
         return output
     
-    def generate_coe(self,filename, awidth, offset = 0, mask = False, ctrl = False, include_end_command = True):
+    def _generate_coe(self,filename, awidth, offset = 0, mask = False, ctrl = False, include_end_command = True):
         if(offset%4 != 0): #leaving this in for now since this is true for the AXI traffic generator, this doens't need to hold for DRAM but DRAM only needs the data file not the address file so it doesn't matter anyway
             raise ValueError("Input variable 'offset' must be an integer mutliple of 4")
         if(awidth < 0):
@@ -326,7 +330,7 @@ class PulseBlaster(Source):
                 addressFile.write(f"{format(addrNum,f"0{awidth}b")}\n")
                 addrNum += 4 #move 4 bytes over in memory
 
-    def generate_testbenchfile(self,filename):
+    def _generate_testbench_file(self,filename):
         addressPointer=0
         workingDirectory = os.getcwd()
         opcode=self.instruction_list[0][PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]   
