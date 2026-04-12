@@ -20,7 +20,7 @@ class PulseBlaster(Source):
                 "WAIT":8}
     instructionLength = 256 #in bits
     phaseWordBits = 48
-    Fclk = 500 #MHz
+    Fclk = 500*10**6 #Hz
     phasehopLen = 1
     resyncLen = 1
     ampLen = 16
@@ -43,7 +43,7 @@ class PulseBlaster(Source):
 
     addrBits = 17 #TODO: have a check to confirm if more then the max possible instructions are written
     
-    freqRes = Fclk*16/(2**freqLen) #frequency resolution in MHz, multiplied by 16 due to sample rate upscaling
+    freqRes = Fclk*16/(2**freqLen) #frequency resolution in Hz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**phaseLen) #phase offset resolution in degrees
     maxAmp = (2**15)-1
     def __init__(self):
