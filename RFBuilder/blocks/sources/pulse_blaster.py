@@ -4,8 +4,50 @@ from RFBuilder.control import ControlManager
 
 from ..base import Source
 from ..port import Port, PortDirection
-from ...networking import send_httpdata
+from ...networking import send_http_data
 import os
+
+class PBInstruction():
+    def __init__(self, phasehop: bool, resync: bool, amp: int, phase: float, freq: float, ttl: int, data: int, opcode: str, delay: int):
+        self.phasehop = phasehop
+        self.resync = resync
+        self.amp = amp
+        self.phase = phase
+        self.freq = freq
+        self.ttl = ttl
+        self.data = data
+        self.opcode = opcode
+        self.delay = delay
+    
+    def encode_instruction(self):
+        print("encode_instruction not yet implimented")
+        return -1
+        #TODO: decide if the frequency word should be changed here so print_instructions will show the rounded value not the input
+        freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
+        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
+        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
+        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
+        
+        phaseIncr = round(freqWord*2**phaseLen/Fclk) #used to determin the frequency
+        phaseOffset = round((2**phaseLen)*phaseWord/360)
+    
+        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
+        instructionString = ""
+        
+        if(self.phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
+            raise ValueError("Defined bus width for instruction (_instructionLength) shorter then actual instruction length")
+        else: #0 pad up to the full bus width
+            for i in range(self.phasehopSB):
+                instructionString += "0"
+        instructionString += format(int(phasehopFlag),f"0{self.phasehopLen}b")
+        instructionString += format(int(resyncFlag),f"0{self.resyncLen}b")
+        instructionString += format(int(ampWord),f"0{self.ampLen}b")
+        instructionString += format(int(phaseOffset),f"0{self.phaseLen}b")
+        instructionString += format(int(phaseIncr),f"0{self.freqLen}b")
+        instructionString += format(int(ttlStates),f"0{self.ttlLen}b")
+        instructionString += format(int(dataField),f"0{self.dataLen}b")
+        instructionString += format(opcodeDict[opcode],f"0{self.opcodeLen}b")
+        instructionString += format(int(delayCounter),f"0{self.delayLen}b")
 
 
 class PulseBlaster(Source):
@@ -19,7 +61,6 @@ class PulseBlaster(Source):
                 "LONG_DELAY":7,
                 "WAIT":8}
     instructionLength = 256 #in bits
-    phaseWordBits = 48
     Fclk = 500*10**6 #Hz
     phasehopLen = 1
     resyncLen = 1
@@ -46,6 +87,7 @@ class PulseBlaster(Source):
     freqRes = Fclk*16/(2**freqLen) #frequency resolution in Hz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**phaseLen) #phase offset resolution in degrees
     maxAmp = (2**15)-1
+    freqMax = 16*((2**phaseLen)-1)*Fclk/(2**phaseLen) #multiplied by 16 to account for scaling
     def __init__(self):
         self.instruction_list: list = []
         self.numinstructions: int = 0
@@ -92,7 +134,11 @@ class PulseBlaster(Source):
         :type Fclk: float
         """
         self.dirty = True
-        if opcode not in PulseBlaster.opcodeDict:
+        opcodeDict = PulseBlaster.opcodeDict
+        maxAmp = PulseBlaster.maxAmp
+
+        #Update optionalInputs to reflect any input by the user
+        if opcode not in opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
         if resyncFlag == None: #if the user does not input a value, default to a value based on opcode
@@ -104,51 +150,35 @@ class PulseBlaster(Source):
         if (opcode == "STOP") and (resyncFlag == 0):
             print("WARNING: Resync Flag set to 0 for STOP opcode. This may lead to an inconsistent starting phase across multiple runs of the program.")
 
-        if(delayCounter%2 != 0):
+        if(delay%2 != 0):
             raise ValueError("Delay must be an integer multiple of 2")
-        elif(delayCounter < 4):
+        elif(delay < 4):
             raise ValueError("Delay must be at least 4ns")
         
-        if((0 > ampWord) or ((2**16)-1) < ampWord):
+        if((0 > amp) or ((2**16)-1) < amp):
             raise ValueError("ampWord must be in the range of 0 to 65535")
         
         if((opcode == "LONG_DELAY") & (dataField!=0)): #done so dataField*delay = total delay length
             dataField = dataField - 1
         
         phasehopFlag = 0
-        freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
-        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
-        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
-        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
-        
-        phaseIncr = round(freqWord*2**PulseBlaster.phaseWordBits/PulseBlaster.Fclk) #used to determin the frequency
-        phaseOffset = round((2**PulseBlaster.phaseWordBits)*phaseWord/360) 
-        
-        #lenTotal = self.phasehopLen + self.resyncLen + self.ampLen + self.phaseLen + self.freqLen + self.ttlLen + self.dataLen + self.opcodeLen + self.delayLen
-        instructionString = ""
-        
-        if(self.phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
-            raise ValueError("Defined bus width for instruction (instructionLength) shorter then actual instruction length")
-        else: #0 pad up to the full bus width
-            for i in range(self.phasehopSB):
-                instructionString += "0"
-        instructionString += format(int(phasehopFlag),f"0{self.phasehopLen}b")
-        instructionString += format(int(resyncFlag),f"0{self.resyncLen}b")
-        instructionString += format(int(ampWord),f"0{self.ampLen}b")
-        instructionString += format(int(phaseOffset),f"0{self.phaseLen}b")
-        instructionString += format(int(phaseIncr),f"0{self.freqLen}b")
-        instructionString += format(int(ttlStates),f"0{self.ttlLen}b")
-        instructionString += format(int(dataField),f"0{self.dataLen}b")
-        instructionString += format(PulseBlaster.opcodeDict[opcode],f"0{self.opcodeLen}b")
-        instructionString += format(int(delayCounter),f"0{self.delayLen}b")
          
-        self.instruction_list.append(instructionString)
+  
+        #TODO: decide if the frequency word should be changed here so print_instructions will show the rounded value not the input
+        instruction = PBInstruction(phasehop,resync,amp,phase,freq,ttl,data,opcode,delay)
+        #print(f"Instruction {i}: phase hop flag = {phaseHopFlag}, resync = {resyncFlag}, amp = {amp}, phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}, opcode = {opcode}, delay = {delay} clock cycles\n")
+        self.instruction_list.append(instruction)
         self.numinstructions += 1 
         return self.numinstructions - 1
 
-    def prepend_instruction(self, opcode:str, ttlStates:int,  freqWord:float, phaseWord:float, ampWord:int, delayCounter:int, dataField:int = 0, resyncFlag:bool = None):
+    def prepend_instruction(self,phasehopFlag: bool,resyncFlag: bool, ampWord: int,  phaseWord: float,freqWord: float,ttlStates: int,dataField: int,opcode: str,delayCounter: int):
+        
+        opcodeDict = PulseBlaster.opcodeDict
+        phaseLen = PulseBlaster.phaseLen
+        Fclk=PulseBlaster.Fclk
+        
         self.dirty = True
-        if opcode not in PulseBlaster._opcodeDict:
+        if opcode not in opcodeDict:
             raise ValueError(f"Instruction {opcode} is not a known instruction word")
         
         if resyncFlag == None: #if the user does not input a value, default to a value based on opcode
@@ -172,81 +202,12 @@ class PulseBlaster(Source):
             dataField = dataField - 1
         
         phasehopFlag = 0
-        freqWord = freqWord/16 #compensate for the upscaling of 16 in the polyphase DDS
-        phasehopFlag = 1 - int(phasehopFlag) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
-        resyncFlag = 1 - int(resyncFlag) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
-        delayCounter = (delayCounter-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
-        
-        phaseIncr = round(freqWord*2**PulseBlaster._phaseWordBits/PulseBlaster._Fclk) #used to determin the frequency
-        phaseOffset = round((2**PulseBlaster._phaseWordBits)*phaseWord/360) 
-        
-        #lenTotal = self._phasehopLen + self._resyncLen + self._ampLen + self._phaseLen + self._freqLen + self._ttlLen + self._dataLen + self._opcodeLen + self._delayLen
-        instructionString = ""
-        
-        if(self._phasehopSB < 0): #check the combined lengths of the fields doesn't exceed the instruction length, this length difference will be the start bit for the phasehop flag
-            raise ValueError("Defined bus width for instruction (_instructionLength) shorter then actual instruction length")
-        else: #0 pad up to the full bus width
-            for i in range(self._phasehopSB):
-                instructionString += "0"
-        instructionString += format(int(phasehopFlag),f"0{self._phasehopLen}b")
-        instructionString += format(int(resyncFlag),f"0{self._resyncLen}b")
-        instructionString += format(int(ampWord),f"0{self._ampLen}b")
-        instructionString += format(int(phaseOffset),f"0{self._phaseLen}b")
-        instructionString += format(int(phaseIncr),f"0{self._freqLen}b")
-        instructionString += format(int(ttlStates),f"0{self._ttlLen}b")
-        instructionString += format(int(dataField),f"0{self._dataLen}b")
-        instructionString += format(PulseBlaster._opcodeDict[opcode],f"0{self._opcodeLen}b")
-        instructionString += format(int(delayCounter),f"0{self._delayLen}b")
          
-        self.instruction_list.insert(0,instructionString)
         self.num_instructions += 1 
         return 0
 
     def print_program(self,mode = "user"):
-        """
-        Prints out all instructions in the current program.
-        
-        :param mode: Determins the format of the printed instruction
-        :type mode: str
-        """
-        i = 0
-        for instruction in self.instruction_list:
-            if (mode == "user"):
-                phaseHopFlag = not bool(int(instruction[self.phasehopSB : self.phasehopSB + self.phasehopLen])) #inverted back into user friendly value
-                resyncFlag = not bool(int(instruction[self.resyncSB : self.resyncSB + self.resyncLen])) #inverted back into user friendly value
-                amp = int(instruction[self.ampSB : self.ampSB + self.ampLen])
-                phase = int(instruction[self.phaseSB : self.phaseSB + self.phaseLen],2)
-                phase = phase*360/(2**PulseBlaster.phaseWordBits)*4
-
-                freq = int(instruction[self.freqSB : self.freqSB + self.freqLen],2)
-                freq = (freq*PulseBlaster.Fclk)/(2**PulseBlaster.phaseWordBits)*16
-
-                ttlOuts = instruction[self.ttlSB : self.ttlSB + self.ttlLen]
-                data = int(instruction[self.dataSB : self.dataSB + self.dataLen],2)
-                opcode = int(instruction[self.opcodeSB : self.opcodeSB + self.opcodeLen],2)
-                for key in self.opcodeDict.keys():
-                    if self.opcodeDict[key] == opcode:
-                        opcode = key
-                delay = int(instruction[self.delaySB : self.delaySB + self.delayLen],2)
-                print(f"Instruction {i}: phase hop flag = {phaseHopFlag}, resync = {resyncFlag}, amp = {amp}, phase = {phase}Deg, freq = {freq}MHz, ttl outputs = {ttlOuts}, data = {data}, opcode = {opcode}, delay = {delay} clock cycles\n")
-            
-            elif (mode == "bin"):
-                print(f"Instruction {i}: {instruction}")
-            elif (mode == "hex"):
-                instructionString = ""
-                for j in range(int(self.instructionLength/32)):
-                    currentString = format(int(instruction[j*32 : (j+1)*32],2),"08X")
-                    instructionString += currentString
-                print(f"Instruction {i}: {instructionString}")
-            elif (mode == "dec"):
-                instructionString = ""
-                for j in range(int(self.instructionLength/32)):
-                    currentString = format(int(instruction[j*32 : (j+1)*32],2),"010d")
-                    instructionString += currentString
-                print(f"Instruction {i}: {instructionString}")
-            else:
-                print("Unknown print mode requested")
-            i += 1
+        print("NOT YET IMPLIMENTED")
 
     def clean_program(self):
         """Removes all instructions from the current program."""
@@ -282,13 +243,17 @@ class PulseBlaster(Source):
         programList = fileHandler.readlines()
         self.instruction_list = programList
 
-    def get_freq_res():
+    def get_freq_res(self):
         return PulseBlaster.freqRes
 
-    def get_phase_res():
+    def get_phase_res(self):
         return PulseBlaster.phaseRes
     
+    def get_amp_max(self):
+        return PulseBlaster.maxAmp
     
+    def get_freq_max(self):
+        return PulseBlaster.freqMax
 
     def update(self):
         bytes_array = bytearray()
@@ -315,8 +280,8 @@ class PulseBlaster(Source):
         if(awidth < 0):
             raise Exception(f"awidth value must be greater than 0")
         workingDirectory=os.getcwd()
-        addressFile=open(os.path.join(workingDirectory+filename+"address.coe"),"w")
-        dataFile=open(os.path.join(workingDirectory+filename+"data.coe"),"w")
+        addressFile=open(os.path.join(workingDirectory+filename+"_address.coe"),"w")
+        dataFile=open(os.path.join(workingDirectory+filename+"_data.coe"),"w")
         addressFile.write("memory_initialization_radix = 2;\n memory_initialization_vector = \n")
         dataFile.write("memory_initialization_radix = 2;\n memory_initialization_vector = \n")
         
@@ -330,7 +295,7 @@ class PulseBlaster(Source):
                 addressFile.write(f"{format(addrNum,f"0{awidth}b")}\n")
                 addrNum += 4 #move 4 bytes over in memory
 
-    def _generate_testbench_file(self,filename):
+    def generate_testbenchfile(self,filename):
         addressPointer=0
         workingDirectory = os.getcwd()
         opcode=self.instruction_list[0][PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]   
