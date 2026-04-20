@@ -1,7 +1,7 @@
 import tqdm
 
 import RFBuilder
-from RFBuilder.blocks.sources.pulse_blaster import PulseBlaster
+from RFBuilder.blocks.sources.pulse_blaster import PulseBlaster, OPCODE
 from .rftester import Base
 
 import numpy as np
@@ -24,10 +24,13 @@ class PBTester(Base):
 
     ## Test function, returns a time and data array.
     def test(self, type: str = "internal") -> tuple[np.ndarray, np.ndarray]:
-        self.pb.prepend_instruction(0, 0, 0, 0, 500, 0, 0, "CONT", 10)
-        self.pb.prepend_instruction(0, 0, 2**15-1, 0, 500, 0, 0, "CONT", 10)
-        self.pb.prepend_instruction(0, 0, 0, 0, 500, 0, 0, "WAIT", 4)
-
+        #CHANGE
+        MHz = 10**6
+        amp = PulseBlaster.maxAmp
+        self.pb.add_instruction(0,500*MHz,0,0,10,prepend=True)
+        self.pb.add_instruction(0,500*MHz,0,amp,10,prepend=True)
+        self.pb.wait(0,500,0,0,4,prepend=True)
+        #END_CHANGE
         self.rf_builder.add(self.pb)
 
         logger = RFBuilder.DataLogger()
@@ -202,34 +205,34 @@ class PBTester(Base):
         ## Simulate the pulse blaster program
 
         outputWaveform = [] # PBSimStep Objects
-
         addressPointer=0
+        addrWidth = PulseBlaster.addrWidth
 
-        loopStack = [[(2**self.pb._addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
+        loopStack = [[(2**addrWidth)-1,0]] #first address is at the very end so when it is checked it always returns not used
         loopPointer = 0
         
         rtsAddress = 0
         
-        while (addressPointer < len(self.pb.instruction_list)):
-            currentInstruction = self.pb.instruction_list[addressPointer]
-            opcode = currentInstruction[PulseBlaster._opcodeSB : PulseBlaster._opcodeSB+PulseBlaster._opcodeLen]
-            opcode = int(opcode,2)
-            delayCounter = int(currentInstruction[self.pb._delaySB : self.pb._delaySB+self.pb._delayLen],2)
+        while (addressPointer < self.pb.numInstructions): 
+            currentInstruction = self.pb.instructionList[addressPointer]
+            opcode = currentInstruction.opcode
+            delayCounter = currentInstruction.delay
+            data = currentInstruction.data
 
-            if(opcode == self.pb._opcodeDict["CONT"]):
+            if(opcode == OPCODE.CONT):
                 addressPointer += 1
-            elif (opcode == self.pb._opcodeDict["STOP"]):
-                addressPointer = len(self.pb.instruction_list)
-            elif (opcode == self.pb._opcodeDict["LOOP"]):
+            elif (opcode == OPCODE.STOP):
+                addressPointer = self.pb.numInstructions
+            elif (opcode == OPCODE.LOOP):
                 if(addressPointer != loopStack[loopPointer][0]):
-                    if(loopStack[loopPointer][0] == 2**self.pb._addrBits-1):
+                    if(loopStack[loopPointer][0] == 2**addrWidth):
                         loopStack[loopPointer][0] = addressPointer
-                        loopStack[loopPointer][1] = int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2)
+                        loopStack[loopPointer][1] = data
                     else:
                         loopPointer += 1
-                        loopStack.append([addressPointer,int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2)])
+                        loopStack.append([addressPointer,data])
                 addressPointer += 1
-            elif (opcode == self.pb._opcodeDict["END_LOOP"]):
+            elif (opcode == OPCODE.END_LOOP):
                 loopStack[loopPointer][1] -= 1
                 if(loopStack[loopPointer][1] == 0):
                     addressPointer +=1
@@ -237,35 +240,43 @@ class PBTester(Base):
                         loopStack.pop(-1) #remove that entry from the loopStack
                         loopPointer -= 1
                     else:
-                        loopStack = [[2**self.pb._addrBits-1,0]]
+                        loopStack = [[2**addrWidth-1,0]]
                         loopPointer = 0
                 else:
-                    addressPointer = int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2) #should have the loop address in the data field
-            elif (opcode == self.pb._opcodeDict["JSR"]):
+                    addressPointer = data #should have the loop address in the data field
+            elif (opcode == OPCODE.JSR):
                 rtsAddress = addressPointer+1
-                addressPointer = int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2) #should have the subroutine address in the data field
-            elif (opcode == self.pb._opcodeDict["RTS"]):
+                addressPointer = data #should have the subroutine address in the data field
+            elif (opcode == OPCODE.RTS):
                 addressPointer = rtsAddress
-            elif (opcode == self.pb._opcodeDict["BRANCH"]):
-                addressPointer = int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2) #should have the branch address in the data field
-            elif (opcode == self.pb._opcodeDict["LONG_DELAY"]):
+            elif (opcode == OPCODE.BRANCH):
+                addressPointer = data #should have the branch address in the data field
+            elif (opcode == OPCODE.LONG_DELAY):
                 addressPointer += 1 #here there is just a longer delay which the tb currently doesn't check since it is an internal param
-                delayCounter = delayCounter * int(currentInstruction[self.pb._dataSB : self.pb._dataSB+self.pb._dataLen],2)
-            elif (opcode == self.pb._opcodeDict["WAIT"]):
+                delayCounter = delayCounter * data
+            elif (opcode == OPCODE.WAIT):
                 addressPointer += 1 #since this is just getting the expected output of the instructions no need to do anything apart from incriment counter
             else:
                 raise ValueError(f"The instruction at address {addressPointer} does not contain a valid opcode: {opcode}")
 
-            ampOutput = currentInstruction[self.pb._ampSB : self.pb._ampSB+self.pb._ampLen]
-            resyncFlag = currentInstruction[self.pb._resyncSB : self.pb._resyncSB+self.pb._resyncLen]
-            phasehopFlag = currentInstruction[self.pb._phasehopSB : self.pb._phasehopSB+self.pb._phasehopLen]
-            phaseOutput = currentInstruction[self.pb._phaseSB : self.pb._phaseSB+self.pb._phaseLen]
-            freqOutput = self.fetch_mask(currentInstruction, self.pb._freqSB, self.pb._freqLen) #account for downscaling from PulseBlaster
-            ttlOutput = currentInstruction[self.pb._ttlSB : self.pb._ttlSB+self.pb._ttlLen]
 
-            freq_scalar = 4_000_000_000 / (1 << 31)
+            phaseLen = PulseBlaster.phaseLen
+            Fclk = PulseBlaster.Fclk
+            freqRes = PulseBlaster.freqRes
+            phaseRes = PulseBlaster.phaseRes
 
-            sim_step = PBSimStep(np.ceil(freqOutput * freq_scalar), int(phaseOutput, 2), int(ampOutput, 2), delayCounter * 2 + 2, int(phasehopFlag, 2), int(resyncFlag, 2), int(ttlOutput, 2))
+            freq = currentInstruction.freq 
+            freq = round(freq/freqRes)*freqRes
+            phase = currentInstruction.phase
+            phase = round(phase/phaseRes)*phaseRes
+            phasehop = currentInstruction.phasehop #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
+            resync = currentInstruction.resync #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
+            delay = currentInstruction.delay #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
+            amp = currentInstruction.amp
+            ttl = currentInstruction.ttl
+
+
+            sim_step = PBSimStep(freq, phase, amp, delay, phasehop, resync, ttl)
             outputWaveform.append(sim_step)
                 
                 
