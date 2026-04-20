@@ -189,7 +189,16 @@ class PulseBlaster(Source):
         instrucNum = self.gen_instruction(OPCODE.LOOP,ttl,freq,phase,amp,delay,loops,resync,prepend)
         return instrucNum
     
-    def end_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, return_addr:int, resync:bool = 0, prepend = False):
+    def end_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, return_addr:int = None, resync:bool = 0, prepend = False):
+        if return_addr == None: #should automatically find first loop above
+            for i in range(self.numInstructions-1,-1,-1):
+                match self.instructionList[i].opcode:
+                    case OPCODE.LOOP:
+                        return_addr = i
+                        break
+                    case _:
+                        continue
+            raise ReferenceError("No start_loop instruction prior to end_loop instruction")
         instrucNum = self.gen_instruction(OPCODE.END_LOOP,ttl,freq,phase,amp,delay,return_addr,resync,prepend)
         return instrucNum
     
