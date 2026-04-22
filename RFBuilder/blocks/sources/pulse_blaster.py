@@ -30,15 +30,15 @@ class PBInstruction():
     delayLen = 32
     dataLen = 20 
 
-    phasehopSB = instructionLength - (phasehopLen+resyncLen+ampLen+phaseLen+freqLen+ttlLen+opcodeLen+delayLen+dataLen)
-    resyncSB = phasehopSB + phasehopLen
-    ampSB = resyncSB + resyncLen
-    phaseSB = ampSB + ampLen
-    freqSB = phaseSB + phaseLen
-    ttlSB = freqSB + freqLen
-    dataSB = ttlSB + ttlLen
-    opcodeSB = dataSB + dataLen
-    delaySB = opcodeSB + opcodeLen
+    delaySB = 0
+    opcodeSB = delayLen
+    dataSB = opcodeSB+opcodeLen
+    ttlSB = dataSB + dataLen
+    freqSB = ttlSB + ttlLen
+    phaseSB = freqSB + freqLen
+    ampSB = phaseSB + phaseLen
+    resyncSB = ampSB + ampLen
+    phasehopSB = resyncSB + resyncLen
     addrWidth = 17 #TODO: have a check to confirm if more then the max possible instructions are written
     
     def __init__(self, opcode:OPCODE, ttl:int, freq:float, phase:float, amp:int, delay:int, data:int|str, resync:bool,phasehop:bool,instructionNum:int,label:str):
@@ -72,7 +72,7 @@ class PBInstruction():
         phaseOffset = round((2**phaseLen)*self.phase/360)
     
         if phasehopSB < 0: #check the combined lengths of the fields doesn't exceed the instruction length
-            raise ValueError(f"Defined instruction bus width {PBInstruction.instructionLength} shorter then actual instruction length")
+            raise ValueError(f"Defined instruction bus width {instructionLength} shorter then actual instruction length")
         
         # Build instruction as a single integer using bit shifts
         instruction = 0
@@ -97,10 +97,11 @@ class PulseBlaster(Source):
     phaseLen = PBInstruction.phaseLen
     delayLen = PBInstruction.delayLen
     dataLen = PBInstruction.dataLen
+    ampLen = PBInstruction.ampLen
 
     freqRes = Fclk*16/(2**freqLen) #frequency resolution in Hz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**phaseLen) #phase offset resolution in degrees
-    maxAmp = (2**15)-1
+    maxAmp = (2**(ampLen-1))-1
     maxFreq = 16*((2**phaseLen)-1)*Fclk/(2**phaseLen) #multiplied by 16 to account for scaling
     maxPhase = 360*(2**phaseLen-1)/(2**phaseLen)
     maxDelay = 2*(2**delayLen-1) + 2
@@ -314,7 +315,7 @@ class PulseBlaster(Source):
         bytes_array = bytearray()
         stopPresent = 0 #TODO: make sure this is still checked
         for instruction in self.instructionList:
-            if(instruction.opcode == "STOP"):
+            if(instruction.opcode == OPCODE.STOP):
                 stopPresent = 1 
             bytes_array += instruction.encode_instruction(self.labelDict)
         if(stopPresent == 0):
