@@ -4,7 +4,7 @@ from RFBuilder.control import ControlManager
 
 from ..base import Source
 from ..port import Port, PortDirection
-from ...networking import send_httpdata
+from ...networking import send_http_data
 import os
 
 
