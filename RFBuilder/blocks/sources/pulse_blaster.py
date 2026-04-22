@@ -195,12 +195,30 @@ class PulseBlaster(Source):
             raise ValueError("Optional input arg prepend must be either true or false")
         
         if(label != None): #add the label to the instruction label dictionary, it's value is the instruction number
-            self.labelDict[label] = instrucNum        
+            if (label in self.labelDict.keys()):
+                raise ValueError(f"Cannot give instruction {instrucNum} label {label} as it has already been assigned to another instruction")
+            else:
+                self.labelDict[label] = instrucNum        
 
         self.numInstructions += 1 
         return instruction.instructionNum
 
     def add_instruction(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label: str = None):
+        """Adds a instruction with the CONT (default) opcode
+
+        Args:
+            ttl (int): _description_
+            freq (float): _description_
+            phase (float): _description_
+            amp (int): _description_
+            delay (int): _description_
+            resync (bool, optional): _description_. Defaults to 0.
+            prepend (bool, optional): _description_. Defaults to False.
+            label (str, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
         data = 0
         instrucNum = self.gen_instruction(OPCODE.CONT,ttl,freq,phase,amp,delay,data,resync,prepend,label)
         return instrucNum
@@ -241,7 +259,7 @@ class PulseBlaster(Source):
         instrucNum = self.gen_instruction(OPCODE.BRANCH,ttl,freq,phase,amp,delay,addr,resync,prepend,label)
         return instrucNum
     
-    def long_delay(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, mult, resync:bool = 0, prepend:bool = False, label:str = None):
+    def long_delay(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, mult:int, resync:bool = 0, prepend:bool = False, label:str = None):
         instrucNum = self.gen_instruction(OPCODE.LONG_DELAY,ttl,freq,phase,amp,delay,mult,resync,prepend,label)
         return instrucNum
     
