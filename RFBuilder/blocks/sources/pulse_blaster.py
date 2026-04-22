@@ -98,6 +98,8 @@ class PulseBlaster(Source):
     delayLen = PBInstruction.delayLen
     dataLen = PBInstruction.dataLen
     ampLen = PBInstruction.ampLen
+    ttlLen = PBInstruction.ttlLen
+    
 
     freqRes = Fclk*16/(2**freqLen) #frequency resolution in Hz, multiplied by 16 due to sample rate upscaling
     phaseRes = 360/(2**phaseLen) #phase offset resolution in degrees
@@ -106,6 +108,7 @@ class PulseBlaster(Source):
     maxPhase = 360*(2**phaseLen-1)/(2**phaseLen)
     maxDelay = 2*(2**delayLen-1) + 2
     maxData = 2**dataLen-1
+    maxTtl = 2**ttlLen-1
 
     def __init__(self):
         self.instructionList: list[PBInstruction] = []
@@ -133,8 +136,9 @@ class PulseBlaster(Source):
         maxAmp = PulseBlaster.maxAmp
         maxFreq = PulseBlaster.maxFreq
         maxPhase = PulseBlaster.maxPhase
-        maxData = (2**PBInstruction.dataLen)-1
+        maxData = PulseBlaster.maxData
         maxDelay = PulseBlaster.maxDelay
+        maxTtl = PulseBlaster.maxTtl
 
         #Update optionalInputs to reflect any input by the user
         if opcode not in OPCODE:
@@ -142,6 +146,8 @@ class PulseBlaster(Source):
 
         if int(ttl) != ttl:
             raise ValueError("ttl input field should be an int")
+        if not(0 <= ttl <= maxTtl):
+            raise ValueError(f"ttl input field must be between 0 and {maxTtl}")
                 
         if not (0 <= freq <= maxFreq):
             raise ValueError(f"freq input field should be between 0 and {maxFreq}")
@@ -203,107 +209,232 @@ class PulseBlaster(Source):
         self.numInstructions += 1 
         return instruction.instructionNum
 
-    def add_instruction(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label: str = None):
+    def add_instruction(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label: str = None) -> int:
         """Adds a instruction with the CONT (default) opcode
 
         Args:
-            ttl (int): _description_
-            freq (float): _description_
-            phase (float): _description_
-            amp (int): _description_
-            delay (int): _description_
-            resync (bool, optional): _description_. Defaults to 0.
-            prepend (bool, optional): _description_. Defaults to False.
-            label (str, optional): _description_. Defaults to None.
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
 
         Returns:
-            _type_: _description_
+            int: Position of the instruction in the instruction list.
         """
         data = 0
         instrucNum = self.gen_instruction(OPCODE.CONT,ttl,freq,phase,amp,delay,data,resync,prepend,label)
         return instrucNum
 
-    def end_program(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 1, prepend:bool = False, label:str = None):
+    def end_program(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 1, prepend:bool = False, label:str = None) -> int:
+        """When executed, the DDS and output flags will be updated, then the program will halt and the PulseBlaster will return to the first instruction to await the start flag.
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         data = 0
         instrucNum = self.gen_instruction(OPCODE.STOP,ttl,freq,phase,amp,delay,data,resync,prepend,label)
         return instrucNum
     
-    def start_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, loops:int, resync:bool = 0, prepend:bool = False, label:str = None):
+    def start_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, loops:int, resync:bool = 0, prepend:bool = False, label:str = None) -> int:
+        """Begin a loop, each iteration of the loop will start from this instruction. 
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            loops (int): Number of times the loop should run
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         instrucNum = self.gen_instruction(OPCODE.LOOP,ttl,freq,phase,amp,delay,loops,resync,prepend,label)
         return instrucNum
     
-    def end_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, return_addr:int = None, resync:bool = 0, prepend:bool = False, label:str = None):
-        if return_addr == None: #should automatically find first loop above
-            for i in range(self.numInstructions-1,-1,-1):
-                match self.instructionList[i].opcode:
-                    case OPCODE.LOOP:
-                        return_addr = i
-                        break
-                    case _:
-                        continue
-            if(return_addr == None):
-                raise ReferenceError("No start_loop instruction prior to end_loop instruction")
+    def end_loop(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label:str = None) -> int:
+        """Jumps back to the start of the currently running loop or continues to the next instruction ff the number of desired loops has been completed. 
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            return_addr (int): User may choose to manually enter the instruction number coresponding to the start_loop instruction of the current loop.
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        
+        Raises:
+            ReferenceError: Cannot find a start_loop instruction before end_loop instruction
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
+        return_addr = None
+        for i in range(self.numInstructions-1,-1,-1):
+            match self.instructionList[i].opcode:
+                case OPCODE.LOOP:
+                    return_addr = i
+                    break
+                case _:
+                    continue
+        if(return_addr == None):
+            raise ReferenceError("No start_loop instruction prior to end_loop instruction")
         instrucNum = self.gen_instruction(OPCODE.END_LOOP,ttl,freq,phase,amp,delay,return_addr,resync,prepend,label)
         return instrucNum
     
-    def jump_subroutine(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, addr:str, resync:bool = 0, prepend:bool = False, label:str = None):
+    def jump_subroutine(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, addr:str, resync:bool = 0, prepend:bool = False, label:str = None) -> int:
+        """Jumps to the instruction with the given label
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            addr (str): String of the instruction label to jump to
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         instrucNum = self.gen_instruction(OPCODE.JSR,ttl,freq,phase,amp,delay,addr,resync,prepend,label)
         return instrucNum
     
-    def return_subroutine(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label:str = None):
+    def return_subroutine(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label:str = None) -> int:
+        """Continues execution from the instruction after the previous jump_subroutine.
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         data = 0
         instrucNum = self.gen_instruction(OPCODE.RTS,ttl,freq,phase,amp,delay,data,resync,prepend,label)
         return instrucNum
     
-    def branch(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, addr:str, resync:bool = 0, prepend:bool = False, label:str = None):
+    def branch(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, addr:str, resync:bool = 0, prepend:bool = False, label:str = None) -> int:
+        """Jump to instruction given in the addr field
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            addt (str): Label of the instruction to jump to
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         instrucNum = self.gen_instruction(OPCODE.BRANCH,ttl,freq,phase,amp,delay,addr,resync,prepend,label)
         return instrucNum
     
     def long_delay(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, mult:int, resync:bool = 0, prepend:bool = False, label:str = None):
+        """This instruction will run for mult*delay nanoseconds before continuing to the next instruction
+
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Minimum value of 4, and must be an integer multiple of 2.
+            mult (int): Multiplier that will be applied to the delay field to get the total delay in nanoseconds
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         instrucNum = self.gen_instruction(OPCODE.LONG_DELAY,ttl,freq,phase,amp,delay,mult,resync,prepend,label)
         return instrucNum
     
     def wait(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label:str = None):
+        """Program execution will pause until the trigger line of the PulseBlaster goes high. After which it will wait for an additional [delay] nanoseconds before executing the next instruction
+        Args:
+            ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
+            freq (float): Frequency of the output sine wave. Units in Hz
+            phase (float): Relative phase offset of the output sine wave from 0. Units in degrees
+            amp (int): Amplitude of the output sine wave. Values range from -32767 to 32767
+            delay (int): Amount of time instruction will run for in nanoseconds before moving to the next instruction. Must be an integer multiple of 2.
+            resync (bool, optional): When set high, the phase accumulator inside the DDS will be set to 0. Posedge triggered. Defaults to 0.
+            prepend (bool, optional): When set to True, the instruction will be added to the start of the instruction list rather than the end. Defaults to False.
+            label (str, optional): String used to reference this instruction in branch or jump_subroutine instructions. Defaults to None.
+
+        Returns:
+            int: Position of the instruction in the instruction list.
+        """
         data = 0
         instrucNum = self.gen_instruction(OPCODE.WAIT,ttl,freq,phase,amp,delay,data,resync,prepend,label)
         return instrucNum
     
-    def print_program(self,mode = "user"):
-        #TODO: reimpliment phasehop
+    def print_program(self):
+        """Prints the current instruction list.
+        """
         for i, entry in enumerate(self.instructionList):
             print(f"Instruction {entry.instructionNum}: opcode = {entry.opcode}, ttl = {entry.ttl}, freq = {entry.freq}Hz, phase = {entry.phase}deg, amp = {entry.amp}, delay = {entry.delay}ns, data = {entry.data}, resync = {entry.resync}, label = {entry.label}\n")
         
     def clean_program(self):
-        """Removes all instructions from the current program."""
+        """Removes all instructions from the instruction list.
+        """
         self.dirty = True
         self.numInstructions = 0
         self.instructionList = []
 
     def save_program(self,filename: str):
-        """
-        Save program to a text file in the current working directory which can later be reloaded using loadprogram.
-
-        :param filename: Name of the file to save the program in. Do not include extention as this is added by the method
-        :type filename: string
+        """Save program to a text file in the current working directory which can later be reloaded using load_program. Do not include file extention in filename
+        
+        Args:
+            filename (str): Name of the file to save the program in. Do not include file extention in filename
         """
         fileHandle = open(filename+".pkl","wb")
         for instruc in self.instructionList:
             pickle.dump(instruc,fileHandle,pickle.HIGHEST_PROTOCOL)
         fileHandle.close()
 
-    def load_program(self, filename: str):
-        """
-        Load a program from a textfile of the name "program_name", do not include file extention as it will be added by the method. Runing this method will clear the current program
+    def load_program(self, filename: str) -> int:
+        """Load a program from a of the name "filename", do not include file extention in filename. Runing this method will clear the current program
 
-        :param filename: Name of the file containing the program. Include file extension in filename
-        :type filename: string
+        Args:
+            filename (str): The file that holds the program you wish to load. Do not include file extention in the filename.
         """
         self.clean_program()
-        try:
-            fileHandle = open(filename+".pkl","rb")
-        except FileNotFoundError:
-            print(f"loadprogram was unable to find {filename}.pkl")
-            return -1
+
+        fileHandle = open(filename+".pkl","rb")
         numInstructions = 0
         while True:
             try:
@@ -313,20 +444,42 @@ class PulseBlaster(Source):
             except EOFError:
                 break
         self.numInstructions = numInstructions
+        return 0
 
-    def get_freq_res(self):
+    def get_freq_res(self) -> float:
+        """
+        Returns:
+            int: Frequency resolution of the PulseBlaster in Hz
+        """
         return PulseBlaster.freqRes
 
-    def get_phase_res(self):
+    def get_phase_res(self) -> float:
+        """
+        Returns:
+            float: Phase resolution of the PulseBlaster in degrees
+        """
         return PulseBlaster.phaseRes
     
-    def get_max_amp(self):
+    def get_max_amp(self) -> int:
+        """
+
+        Returns:
+            int: Returns the absolute value of the maximum amplitude output 
+        """
         return PulseBlaster.maxAmp
     
-    def get_max_freq(self):
+    def get_max_freq(self) -> float:
+        """
+        Returns:
+            float: Returns the maximum frequency output in Hz. Setting the frequency to this value will cause it to hold the previous frequency value
+        """
         return PulseBlaster.maxFreq
     
-    def get_max_phase(self):
+    def get_max_phase(self) -> float:
+        """
+        Returns:
+            float: Returns the maximum phase offset in degrees
+        """
         return PulseBlaster.maxPhase
 
     def update(self):
