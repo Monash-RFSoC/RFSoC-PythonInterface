@@ -17,7 +17,7 @@ class OPCODE(Enum):
     LONG_DELAY = 7
     WAIT = 8
 
-class PBInstruction():
+class MBInstruction():
     instructionLength = 256 #in bits
     Fclk = 500*10**6 #Hz
     phasehopLen = 1
@@ -57,8 +57,8 @@ class PBInstruction():
     def encode_instruction(self,labelDict):
         phaseLen = self.phaseLen
         Fclk = self.Fclk
-        instructionLength = PBInstruction.instructionLength
-        phasehopSB = PBInstruction.phasehopSB
+        instructionLength = MBInstruction.instructionLength
+        phasehopSB = MBInstruction.phasehopSB
         
         freq = self.freq/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehop = 1 - int(self.phasehop) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
@@ -76,29 +76,29 @@ class PBInstruction():
         
         # Build instruction as a single integer using bit shifts
         instruction = 0
-        instruction |= int(phasehop) << PBInstruction.phasehopSB
-        instruction |= int(resync) << PBInstruction.resyncSB
-        instruction |= int(amp) << PBInstruction.ampSB
-        instruction |= int(phaseOffset) << PBInstruction.phaseSB
-        instruction |= int(phaseIncr) << PBInstruction.freqSB
-        instruction |= int(ttl) << PBInstruction.ttlSB
-        instruction |= int(data) << PBInstruction.dataSB
-        instruction |= int(opcode.value) << PBInstruction.opcodeSB
-        instruction |= int(delay) << PBInstruction.delaySB
+        instruction |= int(phasehop) << MBInstruction.phasehopSB
+        instruction |= int(resync) << MBInstruction.resyncSB
+        instruction |= int(amp) << MBInstruction.ampSB
+        instruction |= int(phaseOffset) << MBInstruction.phaseSB
+        instruction |= int(phaseIncr) << MBInstruction.freqSB
+        instruction |= int(ttl) << MBInstruction.ttlSB
+        instruction |= int(data) << MBInstruction.dataSB
+        instruction |= int(opcode.value) << MBInstruction.opcodeSB
+        instruction |= int(delay) << MBInstruction.delaySB
         
         # Convert directly to bytes in little-endian format
         instructionBytes = instruction.to_bytes(instructionLength // 8, byteorder='little', signed=False)
         return instructionBytes
 
-class PulseBlaster(Source):
-    Fclk = PBInstruction.Fclk
-    freqLen = PBInstruction.freqLen
-    addrWidth = PBInstruction.addrWidth
-    phaseLen = PBInstruction.phaseLen
-    delayLen = PBInstruction.delayLen
-    dataLen = PBInstruction.dataLen
-    ampLen = PBInstruction.ampLen
-    ttlLen = PBInstruction.ttlLen
+class MicroBlaster(Source):
+    Fclk = MBInstruction.Fclk
+    freqLen = MBInstruction.freqLen
+    addrWidth = MBInstruction.addrWidth
+    phaseLen = MBInstruction.phaseLen
+    delayLen = MBInstruction.delayLen
+    dataLen = MBInstruction.dataLen
+    ampLen = MBInstruction.ampLen
+    ttlLen = MBInstruction.ttlLen
     
 
     freqRes = Fclk*16/(2**freqLen) #frequency resolution in Hz, multiplied by 16 due to sample rate upscaling
@@ -111,34 +111,34 @@ class PulseBlaster(Source):
     maxTtl = 2**ttlLen-1
 
     def __init__(self):
-        self.instructionList: list[PBInstruction] = []
+        self.instructionList: list[MBInstruction] = []
         self.numInstructions: int = 0
         self.labelDict: dict[str:int] = {}
         
-        super().__init__("pulseblaster", [Port(PortDirection.OUTPUT, 2)])
+        super().__init__("microblaster", [Port(PortDirection.OUTPUT, 2)])
         self.custom_update = True
 
     def register_block(self, ip: str = "", port: int = 0, index: int = 0,ttl: ControlManager = None):
         self.ip = ip
         self.port = port
 
-        self.pins = ttl.pins.pulseblaster
+        self.pins = ttl.pins.microblaster
 
-        ttl.connect(ttl.pins.reserved[0], "PB_RUN") # Connect the "PULSE ON BOOT" pin to PB_RUN
-        ttl.connect(ttl.pins.reserved[2], "PB_RSTN") # Connect the "HIGH" pin to PB_RSTN for always off
-        ttl.connect(["KEY0", "SOFTWARE0"], "PB_TRIG")
+        ttl.connect(ttl.pins.reserved[0], "MB_RUN") # Connect the "PULSE ON BOOT" pin to MB_RUN
+        ttl.connect(ttl.pins.reserved[2], "MB_RSTN") # Connect the "HIGH" pin to MB_RSTN for always off
+        ttl.connect(["KEY0", "SOFTWARE0"], "MB_TRIG")
 
 
         return super().register_block()
     
     def gen_instruction(self, opcode:str, ttl:int,  freq:float, phase:float, amp:int, delay:int, data:int|str, resync:bool, prepend:bool, label:str) -> int:
         self.dirty = True
-        maxAmp = PulseBlaster.maxAmp
-        maxFreq = PulseBlaster.maxFreq
-        maxPhase = PulseBlaster.maxPhase
-        maxData = PulseBlaster.maxData
-        maxDelay = PulseBlaster.maxDelay
-        maxTtl = PulseBlaster.maxTtl
+        maxAmp = MicroBlaster.maxAmp
+        maxFreq = MicroBlaster.maxFreq
+        maxPhase = MicroBlaster.maxPhase
+        maxData = MicroBlaster.maxData
+        maxDelay = MicroBlaster.maxDelay
+        maxTtl = MicroBlaster.maxTtl
 
         #Update optionalInputs to reflect any input by the user
         if opcode not in OPCODE:
@@ -185,7 +185,7 @@ class PulseBlaster(Source):
         instrucNum = -1
         if(prepend == False):
             instrucNum = self.numInstructions
-            instruction = PBInstruction(opcode,ttl,freq,phase,amp,delay,data,resync,phasehop,instrucNum,label)
+            instruction = MBInstruction(opcode,ttl,freq,phase,amp,delay,data,resync,phasehop,instrucNum,label)
             self.instructionList.append(instruction)
         elif(prepend == True):
             instrucNum = 0
@@ -195,7 +195,7 @@ class PulseBlaster(Source):
                     instruc.data = instruc.data + 1 #when an instruction is prepended,
             for key in self.labelDict.keys():
                 self.labelDict[key] += 1 
-            instruction = PBInstruction(opcode,ttl,freq,phase,amp,delay,data,resync,phasehop,instrucNum,label) #instruction num will be 0 if prepended
+            instruction = MBInstruction(opcode,ttl,freq,phase,amp,delay,data,resync,phasehop,instrucNum,label) #instruction num will be 0 if prepended
             self.instructionList.insert(0,instruction)
         else: 
             raise ValueError("Optional input arg prepend must be either true or false")
@@ -230,7 +230,7 @@ class PulseBlaster(Source):
         return instrucNum
 
     def end_program(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 1, prepend:bool = False, label:str = None) -> int:
-        """When executed, the DDS and output flags will be updated, then the program will halt and the PulseBlaster will return to the first instruction to await the start flag.
+        """When executed, the DDS and output flags will be updated, then the program will halt and the MicroBlaster will return to the first instruction to await the start flag.
 
         Args:
             ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
@@ -384,7 +384,7 @@ class PulseBlaster(Source):
         return instrucNum
     
     def wait(self, ttl:int,  freq:float, phase:float, amp:int, delay:int, resync:bool = 0, prepend:bool = False, label:str = None):
-        """Program execution will pause until the trigger line of the PulseBlaster goes high. After which it will wait for an additional [delay] nanoseconds before executing the next instruction
+        """Program execution will pause until the trigger line of the MicroBlaster goes high. After which it will wait for an additional [delay] nanoseconds before executing the next instruction
         Args:
             ttl (int): Each bit of this 12 bit number represents the state of one of the 12 output flags.  
             freq (float): Frequency of the output sine wave. Units in Hz
@@ -449,16 +449,16 @@ class PulseBlaster(Source):
     def get_freq_res(self) -> float:
         """
         Returns:
-            int: Frequency resolution of the PulseBlaster in Hz
+            int: Frequency resolution of the MicroBlaster in Hz
         """
-        return PulseBlaster.freqRes
+        return MicroBlaster.freqRes
 
     def get_phase_res(self) -> float:
         """
         Returns:
-            float: Phase resolution of the PulseBlaster in degrees
+            float: Phase resolution of the MicroBlaster in degrees
         """
-        return PulseBlaster.phaseRes
+        return MicroBlaster.phaseRes
     
     def get_max_amp(self) -> int:
         """
@@ -466,21 +466,21 @@ class PulseBlaster(Source):
         Returns:
             int: Returns the absolute value of the maximum amplitude output 
         """
-        return PulseBlaster.maxAmp
+        return MicroBlaster.maxAmp
     
     def get_max_freq(self) -> float:
         """
         Returns:
             float: Returns the maximum frequency output in Hz. Setting the frequency to this value will cause it to hold the previous frequency value
         """
-        return PulseBlaster.maxFreq
+        return MicroBlaster.maxFreq
     
     def get_max_phase(self) -> float:
         """
         Returns:
             float: Returns the maximum phase offset in degrees
         """
-        return PulseBlaster.maxPhase
+        return MicroBlaster.maxPhase
 
     def update(self):
         bytes_array = bytearray()
@@ -490,12 +490,12 @@ class PulseBlaster(Source):
                 stopPresent = 1 
             bytes_array += instruction.encode_instruction(self.labelDict)
         if(stopPresent == 0):
-            raise ValueError("PulseBlaster program must contain a stop command")
+            raise ValueError("MicroBlaster program must contain a stop command")
         return bytes_array, "api/pulseblaster"
 
     def __str__(self):
         output = ""
-        output += f"[PulseBlaster] Number of Instructions = {self.numInstructions}\n"
+        output += f"[MicroBlaster] Number of Instructions = {self.numInstructions}\n"
         for port in self.ports:
             output += f"\t\t{str(port)}\n"
         return output
@@ -513,7 +513,7 @@ class PulseBlaster(Source):
         
         addrNum = offset
         for instr in self.instructionList:
-            for i in range(int(PulseBlaster.instructionLength/32)): #this converts each instruction into 32 bit chunks
+            for i in range(int(MicroBlaster.instructionLength/32)): #this converts each instruction into 32 bit chunks
                 flippedData = instr[::-1]
                 scaledData = flippedData[i*32:(i+1)*32]
                 scaledData = scaledData[::-1] #flip back
@@ -524,7 +524,7 @@ class PulseBlaster(Source):
     def _generate_testbenchfile(self,filename):
         addressPointer=0
         workingDirectory = os.getcwd()
-        opcode=self.instructionList[0][PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]   
+        opcode=self.instructionList[0][MicroBlaster.opcodeSB : MicroBlaster.opcodeSB+MicroBlaster.opcodeLen]   
         unwrappedFile = open(os.path.join(workingDirectory+filename),"w")
         unwrappedFile.write("1,1,0000000000000000,000000000000000000000000000000,000000000000000000000000000000,000000000000,0\n") #0 pad the start based on reset states
         loopStack = [[(2**self.addrBits)-1,0]] #first address is at the very end so when it is checked it always returns not used
@@ -533,7 +533,7 @@ class PulseBlaster(Source):
         counter = 0
         while (addressPointer < len(self.instructionList)):
             currentInstruction = self.instructionList[addressPointer]
-            opcode = currentInstruction[PulseBlaster.opcodeSB : PulseBlaster.opcodeSB+PulseBlaster.opcodeLen]
+            opcode = currentInstruction[MicroBlaster.opcodeSB : MicroBlaster.opcodeSB+MicroBlaster.opcodeLen]
             opcode = int(opcode,2)
             delayCounter = int(currentInstruction[self.delaySB : self.delaySB+self.delayLen],2)
             waitFlag=0
@@ -583,7 +583,7 @@ class PulseBlaster(Source):
             resyncFlag = currentInstruction[self.resyncSB : self.resyncSB+self.resyncLen]
             phasehopFlag = currentInstruction[self.phasehopSB : self.phasehopSB+self.phasehopLen]
             phaseOutput = currentInstruction[self.phaseSB : self.phaseSB+self.phaseLen]
-            freqOutput = currentInstruction[self.freqSB : self.freqSB+self.freqLen] #account for downscaling from PulseBlaster
+            freqOutput = currentInstruction[self.freqSB : self.freqSB+self.freqLen] #account for downscaling from MicroBlaster
             ttlOutput = currentInstruction[self.ttlSB : self.ttlSB+self.ttlLen]
             #print(delayCounter)
             if(waitFlag == 0):

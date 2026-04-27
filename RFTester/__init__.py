@@ -1,3 +1,3 @@
-from .pbtester import PBTester
+from .mbtester import MBTester
 
-__all__ = ["PBTester"]
+__all__ = ["MBTester"]

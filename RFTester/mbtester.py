@@ -1,12 +1,12 @@
 import tqdm
 
 import RFBuilder
-from RFBuilder.blocks.sources.pulse_blaster import PulseBlaster, OPCODE
+from RFBuilder.blocks.sources.micro_blaster import MicroBlaster, OPCODE
 from .rftester import Base
 
 import numpy as np
 
-class PBSimStep:
+class MBSimStep:
     def __init__(self, freq: int, phase: int, amplitude: int, duration: int, phasehop: int = 0, resync: int = 0, ttl: int = 0):
         self.freq = freq
         self.phase = phase
@@ -16,22 +16,22 @@ class PBSimStep:
         self.resync = resync
         self.ttl = ttl
 
-class PBTester(Base):
-    def __init__(self, rfbuilder: RFBuilder.RFBuilder, pb: RFBuilder.PulseBlaster):
+class MBTester(Base):
+    def __init__(self, rfbuilder: RFBuilder.RFBuilder, mb: RFBuilder.MicroBlaster):
         super().__init__(rfbuilder)
-        self.pb = pb
+        self.mb = mb
 
 
     ## Test function, returns a time and data array.
     def test(self, type: str = "internal") -> tuple[np.ndarray, np.ndarray]:
         #CHANGE
         MHz = 10**6
-        amp = PulseBlaster.maxAmp
-        self.pb.add_instruction(0,500*MHz,0,0,10,prepend=True)
-        self.pb.add_instruction(0,500*MHz,0,amp,10,prepend=True)
-        self.pb.wait(0,500,0,0,4,prepend=True)
+        amp = MicroBlaster.maxAmp
+        self.mb.add_instruction(0,500*MHz,0,0,10,prepend=True)
+        self.mb.add_instruction(0,500*MHz,0,amp,10,prepend=True)
+        self.mb.wait(0,500,0,0,4,prepend=True)
         #END_CHANGE
-        self.rf_builder.add(self.pb)
+        self.rf_builder.add(self.mb)
 
         logger = RFBuilder.DataLogger()
         self.rf_builder.add(logger)
@@ -40,16 +40,16 @@ class PBTester(Base):
         adcs = self.rf_builder.get_adcs()
 
         if type == "internal":
-            self.rf_builder.connect(self.pb, logger)
+            self.rf_builder.connect(self.mb, logger)
         elif type == "feedback":
-            self.rf_builder.connect(self.pb, dacs[0])
+            self.rf_builder.connect(self.mb, dacs[0])
             self.rf_builder.connect(adcs[1], logger)
 
         self.rf_builder.ttl.reset()
 
-        self.rf_builder.ttl.connect("SOFTWARE0", ["DIGITIZER_TRIG0", "PB_TRIG", "SYZYGY_OUT0"])
-        self.rf_builder.ttl.connect("SOFTWARE1", "PB_RSTN")
-        self.rf_builder.ttl.connect("SOFTWARE2", "PB_RUN")
+        self.rf_builder.ttl.connect("SOFTWARE0", ["DIGITIZER_TRIG0", "MB_TRIG", "SYZYGY_OUT0"])
+        self.rf_builder.ttl.connect("SOFTWARE1", "MB_RSTN")
+        self.rf_builder.ttl.connect("SOFTWARE2", "MB_RUN")
 
         self.rf_builder.ttl.update_state("SOFTWARE1", 0)
         self.rf_builder.ttl.update_state("SOFTWARE1", 1)
@@ -95,14 +95,14 @@ class PBTester(Base):
         print(f"\tUser Pulse Blaster code starts at {(delay_time + pulse_time + duration) * 1e9:.2f} ns")
 
         ## At this point, test_data and test_time only contain the information from the start of the user program.
-        pulseBlasterOutput = self.simulate()
+        microBlasterOutput = self.simulate()
 
         print("\nPulse blaster output from simulation:")
-        for step in pulseBlasterOutput:
+        for step in microBlasterOutput:
             print(f"\tFreq: {step.freq}, Phase: {step.phase}, Amplitude: {step.amplitude}, Duration: {step.duration}, PhaseHop: {step.phasehop}, Resync: {step.resync}, TTL: {step.ttl}")
 
 
-        sim_data, sim_time = self.generate_waveform(pulseBlasterOutput, delay_time - 4e-9, 16e9)
+        sim_data, sim_time = self.generate_waveform(microBlasterOutput, delay_time - 4e-9, 16e9)
         if type == "feedback":
             sim_data = np.array(sim_data) * -1
 
@@ -160,16 +160,16 @@ class PBTester(Base):
 
 
     
-    def generate_waveform(self, sim_steps: list[PBSimStep], delay: float, fs: float = 8e9) -> tuple[np.ndarray, np.ndarray]:
+    def generate_waveform(self, sim_steps: list[MBSimStep], delay: float, fs: float = 8e9) -> tuple[np.ndarray, np.ndarray]:
         """Generates the expected pulse blaster waveform.
 
         Multiple sampling rates are available, because you may want to compare it with/without the quantisation of lower sampling rates.
 
-        The waveform is constructed using the simulation output of the pulseblaster function. 
+        The waveform is constructed using the simulation output of the microblaster function. 
 
 
         Args:
-            sim_steps (list[PBSimStep]): The list of simulations steps from the pulse blaster simulation. 
+            sim_steps (list[MBSimStep]): The list of simulations steps from the pulse blaster simulation. 
             delay (float): The initial delay before the start of the pulse blaster program, should be found by aligning the test pulse.
             fs (float): Sampling rate of the reconstructed waveform
 
@@ -200,21 +200,21 @@ class PBTester(Base):
         
         return data, np.concatenate(time)
     
-    # Returns a list of steps, each step is represented by a PBSimStep Object
-    def simulate(self) -> list[PBSimStep]:
+    # Returns a list of steps, each step is represented by a MBSimStep Object
+    def simulate(self) -> list[MBSimStep]:
         ## Simulate the pulse blaster program
 
-        outputWaveform = [] # PBSimStep Objects
+        outputWaveform = [] # MBSimStep Objects
         addressPointer=0
-        addrWidth = PulseBlaster.addrWidth
+        addrWidth = MicroBlaster.addrWidth
 
         loopStack = [[(2**addrWidth)-1,0]] #first address is at the very end so when it is checked it always returns not used
         loopPointer = 0
         
         rtsAddress = 0
         
-        while (addressPointer < self.pb.numInstructions): 
-            currentInstruction = self.pb.instructionList[addressPointer]
+        while (addressPointer < self.mb.numInstructions): 
+            currentInstruction = self.mb.instructionList[addressPointer]
             opcode = currentInstruction.opcode
             delayCounter = currentInstruction.delay
             data = currentInstruction.data
@@ -222,7 +222,7 @@ class PBTester(Base):
             if(opcode == OPCODE.CONT):
                 addressPointer += 1
             elif (opcode == OPCODE.STOP):
-                addressPointer = self.pb.numInstructions
+                addressPointer = self.mb.numInstructions
             elif (opcode == OPCODE.LOOP):
                 if(addressPointer != loopStack[loopPointer][0]):
                     if(loopStack[loopPointer][0] == 2**addrWidth):
@@ -260,10 +260,10 @@ class PBTester(Base):
                 raise ValueError(f"The instruction at address {addressPointer} does not contain a valid opcode: {opcode}")
 
 
-            phaseLen = PulseBlaster.phaseLen
-            Fclk = PulseBlaster.Fclk
-            freqRes = PulseBlaster.freqRes
-            phaseRes = PulseBlaster.phaseRes
+            phaseLen = MicroBlaster.phaseLen
+            Fclk = MicroBlaster.Fclk
+            freqRes = MicroBlaster.freqRes
+            phaseRes = MicroBlaster.phaseRes
 
             freq = currentInstruction.freq 
             freq = round(freq/freqRes)*freqRes
@@ -276,7 +276,7 @@ class PBTester(Base):
             ttl = currentInstruction.ttl
 
 
-            sim_step = PBSimStep(freq, phase, amp, delay, phasehop, resync, ttl)
+            sim_step = MBSimStep(freq, phase, amp, delay, phasehop, resync, ttl)
             outputWaveform.append(sim_step)
                 
                 

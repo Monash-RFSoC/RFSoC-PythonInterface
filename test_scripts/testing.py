@@ -11,9 +11,9 @@ rf_builder.sinc_filters = 0
 dacs = rf_builder.get_dacs()
 adcs = rf_builder.get_adcs()
 
-pb = PulseBlaster()
+mb = MicroBlaster()
 
-rf_builder.add(pb)
+rf_builder.add(mb)
 
 
 AMP = 2**15 - 1
@@ -21,17 +21,16 @@ FREQ = np.pi * 100
 
 AMP = AMP / 2
 
-# pb.add_instruction(0, 0, AMP, 0, FREQ, 0, 0, "WAIT", 4)
+# mb.add_instruction(0, 0, AMP, 0, FREQ, 0, 0, "WAIT", 4)
 freqs = range(500, 3000, 2)
 if len(freqs) > 2000:
     assert False, "Too many frequencies, reduce the range or increase the step size."
 
 for f in freqs:
-    pb.add_instruction(0, 0, AMP * 2, 0, f, 0, 0, "CONT", 5_000_000)
-# pb.add_instruction(0, 0, AMP * 2, 0, FREQ, 0, 0, "CONT", 50_000_000)
-# pb.add_instruction(0, 0, AMP, 0, FREQ, 0, 0, "CONT", 100)
-pb.add_instruction(0, 0, AMP * 2, 0, FREQ, 0, 0, "BRANCH", 500_000)
-pb.add_instruction(0, 1, AMP * 2, 0, FREQ, 0, 0, "STOP", 4)
+    mb.add_instruction(0, f, 0, AMP * 2, 5_000_000, label=f"freq{f}")
+
+mb.branch(0, FREQ, 0, AMP * 2, 500_000,"freq500")
+mb.end_program(0, FREQ, 0, AMP * 2, 4)
 
 
 awg = ArbitraryWaveformGenerator(WaveType.SINE, FREQ * 1e6, amplitude=AMP, tolerance= 1, max_samples=1000000)
@@ -44,13 +43,13 @@ rf_builder.ttl.reset()
 logger = DataLogger()
 
 rf_builder.add(logger)
-rf_builder.connect(pb, dacs[0])
+rf_builder.connect(mb, dacs[0])
 
-rf_builder.ttl.connect("SOFTWARE0", ["DIGITIZER_TRIG0", "PB_TRIG"])
+rf_builder.ttl.connect("SOFTWARE0", ["DIGITIZER_TRIG0", "MB_TRIG"])
 
-rf_builder.ttl.connect("SOFTWARE1", "PB_RSTN")
+rf_builder.ttl.connect("SOFTWARE1", "MB_RSTN")
 
-rf_builder.ttl.connect("SOFTWARE2", "PB_RUN")
+rf_builder.ttl.connect("SOFTWARE2", "MB_RUN")
 
 
 print(rf_builder.ttl.connections)
