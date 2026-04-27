@@ -9,22 +9,22 @@ from RFTester import *
 
 # print("Start")
 board = RFSOC4x2()
-rf_builder = RFBuilder(board, "169.254.2.69", 8080)
+rf_builder = RFBuilder(board, "169.254.127.84", 8080)
 
-pb = PulseBlaster()
+mb = MicroBlaster()
+maxAmp = mb.get_max_amp()
+mb.add_instruction(0,100*1e6, 0, maxAmp, 100)
+mb.add_instruction(0,200*1e6, 0, maxAmp, 100)
+mb.add_instruction(0,300*1e6, 0, maxAmp, 100)
+mb.add_instruction(0,400*1e6, 0, maxAmp, 100)
+mb.add_instruction(0,500*1e6, 0, maxAmp, 100)
+# mb.add_instruction(0, 0, "STOP", 100)
+mb.end_program(0, 0, 0, maxAmp, 100)
 
-X = 90
-Y = 270
-F = 281.33
-pb.add_instruction(F, 0, "CONT", 100)
-pb.add_instruction(F, 0, "CONT", 100, resyncFlag=True)
 
+# mb.add_instruction(0, 0, 2**15 - 1, 0, 200, 0, 0, "BRANCH", 500)
 
-pb.add_instruction(0, 0, "STOP", 50, ampWord=0)
-
-# pb.add_instruction(0, 0, 2**15 - 1, 0, 200, 0, 0, "BRANCH", 500)
-
-rf_tester = PBTester(rf_builder, pb)
+rf_tester = MBTester(rf_builder, mb)
 
 _d, _t, _sim_d, _sim_t, _start_time, _worst = rf_tester.test("internal")
 
