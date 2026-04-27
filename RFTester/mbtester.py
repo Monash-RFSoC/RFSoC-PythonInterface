@@ -29,7 +29,7 @@ class MBTester(Base):
         amp = MicroBlaster.maxAmp
         self.mb.add_instruction(0,500*MHz,0,0,10,prepend=True)
         self.mb.add_instruction(0,500*MHz,0,amp,10,prepend=True)
-        self.mb.wait(0,500,0,0,4,prepend=True)
+        self.mb.wait(0,500*MHz,0,0,4,prepend=True)
         #END_CHANGE
         self.rf_builder.add(self.mb)
 
@@ -42,7 +42,7 @@ class MBTester(Base):
         if type == "internal":
             self.rf_builder.connect(self.mb, logger)
         elif type == "feedback":
-            self.rf_builder.connect(self.mb, dacs[0])
+            self.rf_builder.connect(self.mb, dacs[1])
             self.rf_builder.connect(adcs[1], logger)
 
         self.rf_builder.ttl.reset()
@@ -104,7 +104,7 @@ class MBTester(Base):
 
         sim_data, sim_time = self.generate_waveform(microBlasterOutput, delay_time - 4e-9, 16e9)
         if type == "feedback":
-            sim_data = np.array(sim_data) * -1
+            sim_data = np.array(sim_data)
 
 
         self.compare_waveforms(og_data, og_time, sim_data, sim_time)
@@ -142,17 +142,17 @@ class MBTester(Base):
         min_rmse = base_rmse
         min_shift = 0
         print("Performing time-shifted comparisons:")
-        for time_shift in tqdm.tqdm(np.arange(-2e-9, 2e-9, 100e-12)):
-            # find the comparison window
-            sim_filtered = []
-            for t in test_time:
-                idx = np.argmin(np.abs(sim_time - t - time_shift))
-                sim_filtered.append(sim_data[idx])
+        # for time_shift in tqdm.tqdm(np.arange(-2e-9, 2e-9, 100e-12)):
+        #     # find the comparison window
+        #     sim_filtered = []
+        #     for t in test_time:
+        #         idx = np.argmin(np.abs(sim_time - t - time_shift))
+        #         sim_filtered.append(sim_data[idx])
                 
-            rmse = np.sqrt(np.mean((sim_filtered - test_data) ** 2))
-            if rmse < min_rmse:
-                min_rmse = rmse
-                min_shift = time_shift
+        #     rmse = np.sqrt(np.mean((sim_filtered - test_data) ** 2))
+        #     if rmse < min_rmse:
+        #         min_rmse = rmse
+        #         min_shift = time_shift
 
     
         print(f"  Best time shift: {min_shift * 1e9:.2f} ns, RMSE: {min_rmse}")
@@ -187,7 +187,8 @@ class MBTester(Base):
         print("\nReconstructing Pulse Blaster waveform at a sample rate of {:.2f} GSa/s.".format(fs))
         for step in tqdm.tqdm(sim_steps):
             step.duration = step.duration * 1e-9 #convert from nano-seconds to seconds
-            step.amplitude /= 2
+            # step.amplitude /= 2
+            print(step.amplitude)
             num_samples = int(step.duration / (1e-9 / fs)) #convert duration from nano-seconds to number of samples at 8 GSPS
             t = np.linspace(current_time, current_time + step.duration, num_samples, endpoint=False)
             for _ in range(num_samples):
@@ -266,9 +267,9 @@ class MBTester(Base):
             phaseRes = MicroBlaster.phaseRes
 
             freq = currentInstruction.freq 
-            freq = round(freq/freqRes)*freqRes
+            # freq = round(freq/freqRes)*freqRes
             phase = currentInstruction.phase
-            phase = round(phase/phaseRes)*phaseRes
+            # phase = round(phase/phaseRes)*phaseRes
             phasehop = currentInstruction.phasehop #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
             resync = currentInstruction.resync #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
             delay = currentInstruction.delay #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
