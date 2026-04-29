@@ -59,12 +59,13 @@ class MBInstruction():
         Fclk = self.Fclk
         instructionLength = MBInstruction.instructionLength
         phasehopSB = MBInstruction.phasehopSB
+        ampLen = MBInstruction.ampLen
         
         freq = self.freq/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehop = 1 - int(self.phasehop) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resync = 1 - int(self.resync) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
         delay = (self.delay-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
-        amp = self.amp
+        amp = self.amp if self.amp>= 0 else (2**ampLen-1)+(self.amp+1) #does the convertion to twos complement
         ttl = self.ttl
         data = self.data if isinstance(self.data,int) else labelDict[self.data] #check to see if data is an int or a label for an instruction
         opcode = self.opcode
@@ -155,7 +156,7 @@ class MicroBlaster(Source):
         if not(0 <= phase <= maxPhase):
             raise ValueError(f"phase input field should be between 0 {maxPhase}")
 
-        if not(0<= amp <= maxAmp):
+        if not(-maxAmp <= amp <= maxAmp):
             raise ValueError(f"amp must be in the range of -{maxAmp} to {maxAmp}")
         if int(amp)!=amp:
             raise ValueError("amp input field must be an integer")
