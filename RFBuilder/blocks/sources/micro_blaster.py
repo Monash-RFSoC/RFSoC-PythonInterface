@@ -291,11 +291,17 @@ class MicroBlaster(Source):
             int: Position of the instruction in the instruction list.
         """
         return_addr = None
+        loopCount = 0
         for i in range(self.numInstructions-1,-1,-1):
             match self.instructionList[i].opcode:
                 case OPCODE.LOOP:
-                    return_addr = i
-                    break
+                    if loopCount == 0:
+                        return_addr = i
+                        break
+                    else:
+                        loopCount -= 1
+                case OPCODE.END_LOOP:
+                    loopCount += 1
                 case _:
                     continue
         if(return_addr == None):
