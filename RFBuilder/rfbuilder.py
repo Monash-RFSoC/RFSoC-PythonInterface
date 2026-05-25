@@ -29,6 +29,7 @@ class RFBuilder(ABC):
         self.connections : list[tuple[int, int]] = []
         self.connections_dirty : bool = False
         self.sinc_filters : int = 0
+        self.mb_ttl_delay : int = 0 #how many clock cycles of delay to add
 
         # RFBuilder Networking Information
         self.ip = ip
@@ -126,6 +127,7 @@ class RFBuilder(ABC):
             }
 
         system["sinc_filter"] = self.sinc_filters
+        system["mb_ttl_delay"] = self.mb_ttl_delay
 
         if (system != {"blocks": []}):
             ## If there are updates to send, construct the data object to send
@@ -183,6 +185,13 @@ class RFBuilder(ABC):
     def set_sinc_filters(self, status: int):
         self.sinc_filters = status
         self.dirty = True
+
+    def set_mb_ttl_delay(self, delay: int):
+        if(isinstance(delay,int)):
+            self.mb_ttl_delay = delay
+            self.dirty = True
+        else:
+            raise TypeError("delay value must be an integer")
 
     def __str__(self):
         output = ""
