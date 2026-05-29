@@ -6,6 +6,7 @@ import os
 from enum import Enum
 import pickle
 
+
 class OPCODE(Enum):
     CONT = 0
     STOP = 1
@@ -64,7 +65,7 @@ class MBInstruction():
         freq = self.freq/16 #compensate for the upscaling of 16 in the polyphase DDS
         phasehop = 1 - int(self.phasehop) #for a user, a 1 should indicate phasehop functionality enabled, however it goes to a CE pin so needs to be inverted 
         resync = 1 - int(self.resync) #flips 1 to 0 and 0 to 1, done as the dds has an active low reset
-        delay = (self.delay-2) / 2 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
+        delay = (self.delay-2) / 2 if self.delay >=2 else 0 #each clock tick is 2ns, and the count value is how many clock ticks to wait, so a delay of 1000 nanoseconds is 499 clock ticks
         amp = self.amp if self.amp>= 0 else (2**ampLen-1)+(self.amp+1) #does the convertion to twos complement
         ttl = self.ttl
         data = self.data if isinstance(self.data,int) else labelDict[self.data] #check to see if data is an int or a label for an instruction
